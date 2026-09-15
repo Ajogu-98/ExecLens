@@ -1,0 +1,14 @@
+{
+  "name": "execlens",
+  "version": "1.0.0",
+  "private": true,
+  "description": "ExecLens turns technical status updates into executive-ready reporting, anchored to stated objectives.",
+  "scripts": {
+    "dev": "netlify dev",
+    "deploy": "netlify deploy --prod"
+  },
+  "devDependencies": {
+    "@netlify/functions": "^3.0.0",
+    "netlify-cli": "^19.0.0"
+  }
+}
