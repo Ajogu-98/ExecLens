@@ -72,6 +72,7 @@ WHAT TO KEEP, FLAG, OR CUT:
 - NEVER INVENT. If a bullet lacks a fact the report needs (the actual user impact,
   a count, whether a tool is the team's or a vendor's), write the bullet without
   the missing fact and set "missing" to a short note about what to ask the team.
+- Be economical. Do not restate the raw text anywhere in your response.
 
 TIMELINE (only for objectives with a target date):
 - Judge on-track / at-risk / slipped ONLY from what the team wrote and the date.
@@ -109,14 +110,16 @@ Respond with ONLY a JSON object, no prose, no code fences, in this exact shape:
     { "objectiveId": "<id from the list>", "title": "<objective title>",
       "timeline": { "status": "on-track" | "at-risk" | "slipped" | "unknown", "note": "<one short sentence, or empty>" },
       "bullets": [ { "text": "<rewritten bullet>", "status": "complete" | "in-progress" | "blocked",
-                     "source": "<the original raw bullet, verbatim>", "missing": "<optional note>" } ] }
+                     "src": [<numbers of the raw bullets this came from>], "missing": "<optional note, omit if none>" } ] }
   ],
   "blockersAndAsks": [ { "text": "<plain statement of the blocker>", "ask": "<what leadership can do, or 'Awareness only.'>" } ],
-  "offObjective": [ { "text": "<rewritten bullet>", "source": "<original>", "reason": "<why it maps to no objective>" } ],
-  "cut": [ { "source": "<original raw bullet>", "reason": "<one line>" } ]
+  "offObjective": [ { "text": "<rewritten bullet>", "src": [<numbers>], "reason": "<why it maps to no objective>" } ],
+  "cut": [ { "src": [<numbers>], "reason": "<one line>" } ]
 }
-Include every objective in "objectives", even with an empty bullets array. Every raw
-bullet must land in exactly one of: an objective's bullets, offObjective, or cut.
+NEVER copy the original bullet text into your response. Refer to each raw bullet ONLY
+by its number in "src". This keeps the response short.
+Include every objective in "objectives", even with an empty bullets array. Every numbered
+raw bullet must appear in exactly one "src" across the whole response.
 `.trim();
 
 const DRAFT_VALUE_SCHEMA = `
@@ -124,7 +127,11 @@ Respond with ONLY a JSON object, no prose, no code fences:
 { "businessValue": "<one to three plain sentences>" }
 `.trim();
 
-async function callModel(system: string, user: string, maxTokens: number) {
+/**
+ * Calls the model with streaming on. Streaming matters here: it keeps bytes moving so
+ * the request is never idle, and it lets us hand the caller a progress callback.
+ */
+async function callModel(system: string, user: string, maxTokens: number, onTick?: () => void) {
   const key = Netlify.env.get("ANTHROPIC_API_KEY");
   if (!key) {
     throw Object.assign(new Error("The translation service isn't configured yet. Add ANTHROPIC_API_KEY to the site's environment variables."), { status: 503 });
@@ -141,19 +148,43 @@ async function callModel(system: string, user: string, maxTokens: number) {
       max_tokens: maxTokens,
       system,
       messages: [{ role: "user", content: user }],
+      stream: true,
     }),
   });
-  if (!res.ok) {
+  if (!res.ok || !res.body) {
     const body = await res.text().catch(() => "");
     throw Object.assign(new Error(`The model request failed (${res.status}). ${body.slice(0, 300)}`), { status: 502 });
   }
-  const data = await res.json();
-  const text = (data.content || [])
-    .filter((b: any) => b.type === "text")
-    .map((b: any) => b.text)
-    .join("\n")
-    .trim();
-  return text;
+
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+  let text = "";
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+    const lines = buffer.split("\n");
+    buffer = lines.pop() || "";
+    for (const line of lines) {
+      if (!line.startsWith("data:")) continue;
+      const payload = line.slice(5).trim();
+      if (!payload || payload === "[DONE]") continue;
+      try {
+        const evt = JSON.parse(payload);
+        if (evt.type === "content_block_delta" && evt.delta?.type === "text_delta") {
+          text += evt.delta.text;
+          if (onTick) onTick();
+        } else if (evt.type === "error") {
+          throw Object.assign(new Error(`The model stopped early: ${evt.error?.message || "unknown error"}`), { status: 502 });
+        }
+      } catch (e: any) {
+        if (e?.status) throw e;
+        // partial or non-JSON keepalive line; ignore
+      }
+    }
+  }
+  return text.trim();
 }
 
 function parseJson(text: string) {
@@ -187,9 +218,14 @@ export default async (req: Request, _context: Context) => {
       if (!raw) return json({ error: "Nothing to translate." }, 400);
       if (!project.objectives || !project.objectives.length) return json({ error: "The project has no objectives to map to." }, 400);
 
+      const items: string[] = Array.isArray(payload.items) && payload.items.length
+        ? payload.items.map((x: any) => String(x))
+        : raw.split("\n").map((l) => l.trim()).filter(Boolean);
+      const numbered = items.map((t, i) => `${i + 1}. ${t}`).join("\n");
+
       const system = `${EDITORIAL_RULES}\n\n${buildProjectContext(project)}\n\n${TRANSLATE_SCHEMA}`;
-      const user = `REPORTING PERIOD: ${period || "(not stated)"}\n\nRAW BULLETS FROM THE TEAM:\n${raw}`;
-      const text = await callModel(system, user, 4000);
+      const user = `REPORTING PERIOD: ${period || "(not stated)"}\n\nRAW BULLETS FROM THE TEAM (refer to these by number in "src"):\n${numbered}`;
+      const text = await callModel(system, user, 3000);
       const parsed = parseJson(text);
 
       // Every stated objective appears, in project order, so the report layout is stable.
@@ -200,9 +236,19 @@ export default async (req: Request, _context: Context) => {
         const timeline = hit && hit.timeline && typeof hit.timeline === "object" ? hit.timeline : { status: "unknown", note: "" };
         return { objectiveId: o.id, title: o.title, timeline: o.targetDate ? timeline : undefined, bullets: (hit && hit.bullets) || [] };
       });
+      const srcText = (src: any) => {
+        const nums = Array.isArray(src) ? src : (typeof src === "number" ? [src] : []);
+        return nums
+          .map((n: any) => items[Number(n) - 1])
+          .filter(Boolean)
+          .join(" / ");
+      };
+      parsed.objectives.forEach((o: any) => {
+        (o.bullets || []).forEach((b: any) => { b.source = srcText(b.src); delete b.src; });
+      });
       parsed.blockersAndAsks = parsed.blockersAndAsks || [];
-      parsed.offObjective = parsed.offObjective || [];
-      parsed.cut = parsed.cut || [];
+      parsed.offObjective = (parsed.offObjective || []).map((x: any) => ({ ...x, source: srcText(x.src), src: undefined }));
+      parsed.cut = (parsed.cut || []).map((x: any) => ({ reason: x.reason, source: srcText(x.src) })).filter((x: any) => x.source);
       return json(parsed);
     }
 

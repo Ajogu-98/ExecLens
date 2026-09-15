@@ -431,6 +431,22 @@ function el(html) {
   t.innerHTML = html.trim();
   return t.content.firstElementChild;
 }
+/* Split pasted text into bullets. A new bullet starts at -, *, bullet char, or "1." ;
+   anything else is treated as a continuation of the previous line. */
+function splitBullets(raw) {
+  const out = [];
+  raw.split("\n").forEach(line => {
+    const t = line.trim();
+    if (!t) return;
+    if (/^([-*\u2022\u00b7]|\d+[.)])\s+/.test(t) || !out.length) {
+      out.push(t.replace(/^([-*\u2022\u00b7]|\d+[.)])\s+/, ""));
+    } else {
+      out[out.length - 1] += " " + t;
+    }
+  });
+  return out;
+}
+
 function currentPeriodLabel(cadence) {
   const d = new Date();
   const fmt = (x) => x.toLocaleDateString(undefined, { month: "short", day: "numeric" });
@@ -713,9 +729,11 @@ function renderTranslate(id) {
     if (!raw) { showMsg(msg, "Paste at least one bullet to translate.", "error"); return; }
     const btn = document.getElementById("t-go");
     btn.disabled = true;
-    out.innerHTML = `<div class="card"><span class="working"><span class="spin"></span>Reading the update against ${p.objectives.length} objective${p.objectives.length === 1 ? "" : "s"}</span></div>`;
+    const count = splitBullets(raw).length;
+    out.innerHTML = `<div class="card"><span class="working"><span class="spin"></span>Reading ${count} bullet${count === 1 ? "" : "s"} against ${p.objectives.length} objective${p.objectives.length === 1 ? "" : "s"}. This takes a few seconds.</span></div>`;
     try {
-      const result = await callApi({ mode: "translate", project: p, period, raw });
+      const items = splitBullets(raw);
+      const result = await callApi({ mode: "translate", project: p, period, raw, items });
       renderOutput(out, p, period, result);
     } catch (err) {
       out.innerHTML = `<div class="empty">Nothing to show yet.</div>`;
@@ -890,6 +908,9 @@ async function callApi(payload) {
   let data = null;
   try { data = await res.json(); } catch (e) { /* non-json */ }
   if (!res.ok) {
+    if (res.status === 504 || res.status === 502) {
+      throw new Error("That took longer than the server allows. Try translating fewer bullets at once, or press Translate again.");
+    }
     const detail = (data && data.error) ? data.error : `The translation service returned ${res.status}.`;
     throw new Error(detail);
   }

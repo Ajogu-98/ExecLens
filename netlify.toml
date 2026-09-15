@@ -4,3 +4,8 @@
 [functions]
   directory = "netlify/functions"
   node_bundler = "esbuild"
+
+[functions."translate"]
+  # The model call can run long on a big update. Netlify allows up to the plan's
+  # synchronous limit; this asks for the headroom explicitly.
+  timeout = 60
