@@ -1,205 +1,24 @@
 import type { Context, Config } from "@netlify/functions";
+import { getStore } from "@netlify/blobs";
+import { DRAFT_VALUE_SCHEMA, callModel, parseJson, type Project } from "./_shared.mts";
 
 /**
- * ExecLens translation service.
+ * Fast half of the translation service. Everything here must finish well inside
+ * the 30 second synchronous limit.
  *
- * Two jobs:
- *   mode: "translate"   -> rewrite a period's raw bullets against a project's objectives
- *   mode: "draft-value" -> draft a "why leadership cares" line for one objective
+ *   mode: "start"       -> queue a translation, return its job id
+ *   mode: "status"      -> report on a queued job
+ *   mode: "draft-value" -> draft a "why leadership cares" line (small, quick)
  *
- * The API key never leaves this function. Set ANTHROPIC_API_KEY in Netlify env vars.
+ * The long work happens in translate-background.mts.
  */
-
-const MODEL = Netlify.env.get("EXECLENS_MODEL") || "claude-sonnet-5";
-const ANTHROPIC_URL = "https://api.anthropic.com/v1/messages";
-
-type Objective = { id: string; title: string; description?: string; businessValue?: string; targetDate?: string };
-type Project = {
-  name?: string; org?: string; industry?: string; mission?: string; cadence?: string;
-  alignsTo?: string; successCriteria?: string;
-  objectives?: Objective[];
-};
-
-const EDITORIAL_RULES = `
-You are the editor for a weekly executive status report. You rewrite raw technical
-status bullets into bullets a non-technical executive can read without a single
-follow-up question. You are strict, plain, and you never inflate.
-
-EVERY REWRITTEN BULLET FOLLOWS THIS ORDER, IN PLAIN PROSE (NOT LABELED):
-1. WHAT was done, or what the issue is. Lead with the result or the problem in one
-   plain sentence. No product names, acronyms, or ticket numbers in the opening.
-2. WHY it matters to leadership. One sentence on the impact: what it protects,
-   saves, unblocks, or what breaks if it slips. Sources for the why, in priority
-   order: the objective's "why leadership cares" text; the project's SUCCESS
-   CRITERIA (if the bullet moves one forward, say which); the strategic goal the
-   project ALIGNS TO (cite it in leadership's own words, e.g. "advances Sub-Goal
-   5.01"). Do not invent impact that none of these or the bullet supports.
-3. WHO is affected. Name the users or stakeholders and weave them into the
-   sentence. Never put "who" in parentheses at the end.
-4. STATUS. Only for unfinished work. Completed work gets no status label.
-
-PLAIN-LANGUAGE RULES:
-- Name the RISK, not the mechanism. "Sensitive data could be exposed," not
-  "DLP does not enforce." Drop control and product names (DLP, Purview, Entra,
-  CAB, IdP, ETL, Apex, etc.) unless a plain phrase cannot carry the meaning.
-- Assume the reader knows no IT acronyms. Spell one out only if it is essential;
-  otherwise replace it with a plain phrase.
-- Short sentences. Two sentences per bullet is the norm, three is the maximum.
-- BANNED words and phrases (they describe motion, not results): enabling,
-  supporting, partnered with, efforts, initiate, leverage, worked toward, made
-  headway, assisted with, collaborated with, continued to, in accordance with.
-  Replace with a concrete verb: resolved, completed, cleared, removed, upgraded,
-  migrated, launched, blocked on.
-- Keep real numbers when the team supplied them (records migrated, tickets logged,
-  users onboarded). Numbers are the most executive-friendly thing in a report.
-- Never use em dashes.
-
-WHAT TO KEEP, FLAG, OR CUT:
-- KEEP completed work and in-progress work that ties to a stated objective.
-- FLAG as a blocker anything waiting on a person, a decision, an approval, or
-  access. Blockers go in "blockersAndAsks" AND their objective (if any). Write the
-  ask as the specific thing leadership can do. If there is nothing to decide, say
-  "Awareness only."
-- FLAG as off-objective any real accomplishment that does not map to one of the
-  stated objectives. Rewrite it in the same style and give a one-line reason.
-- CUT, with a one-line reason: routine meeting attendance; upcoming or scheduled
-  activities that have not happened; internal tuning or maintenance with no
-  impact outside the team; documentation, runbook, or template help; anything
-  that conveys no impact, risk, or decision. Do not cut real progress just because
-  it is small.
-- MERGE bullets that tell one story (an upgrade plus retiring the old system, a
-  fix plus its validation) into a single bullet.
-- NEVER INVENT. If a bullet lacks a fact the report needs (the actual user impact,
-  a count, whether a tool is the team's or a vendor's), write the bullet without
-  the missing fact and set "missing" to a short note about what to ask the team.
-- Be economical. Do not restate the raw text anywhere in your response.
-
-TIMELINE (only for objectives with a target date):
-- Judge on-track / at-risk / slipped ONLY from what the team wrote and the date.
-  Evidence of risk: a stated slip, a blocker that gates the objective, a dependency
-  not received, a phase that has not started when the date is near. If the bullets
-  give no timeline evidence, use "unknown" and leave the note empty. Never guess.
-- "slipped" means the team said the date will not be met. "at-risk" means there is
-  a specific threat to the date. Everything else with positive progress is "on-track".
-`.trim();
-
-function buildProjectContext(p: Project): string {
-  const lines: string[] = [];
-  lines.push(`PROJECT: ${p.name || "(unnamed)"}`);
-  if (p.org) lines.push(`ORGANIZATION: ${p.org}${p.industry ? ` (${p.industry})` : ""}`);
-  if (p.cadence) lines.push(`REPORTING CADENCE: ${p.cadence}`);
-  if (p.mission) lines.push(`PROGRAM MISSION: ${p.mission}`);
-  if (p.alignsTo) lines.push(`ALIGNS TO (strategic goal or mandate, cite in leadership's words): ${p.alignsTo}`);
-  if (p.successCriteria) lines.push(`SUCCESS CRITERIA (how leadership will judge the project): ${p.successCriteria}`);
-  lines.push(`TODAY: ${new Date().toISOString().slice(0, 10)}`);
-  lines.push(``);
-  lines.push(`STATED OBJECTIVES (map every bullet to one of these by id):`);
-  (p.objectives || []).forEach((o, i) => {
-    lines.push(`${i + 1}. id="${o.id}" ${o.title}${o.targetDate ? `  [target date: ${o.targetDate}]` : ""}`);
-    if (o.description) lines.push(`   What it is: ${o.description}`);
-    if (o.businessValue) lines.push(`   Why leadership cares: ${o.businessValue}`);
-    else lines.push(`   Why leadership cares: (not stated; infer cautiously from the title, and prefer restraint)`);
-  });
-  return lines.join("\n");
-}
-
-const TRANSLATE_SCHEMA = `
-Respond with ONLY a JSON object, no prose, no code fences, in this exact shape:
-{
-  "objectives": [
-    { "objectiveId": "<id from the list>", "title": "<objective title>",
-      "timeline": { "status": "on-track" | "at-risk" | "slipped" | "unknown", "note": "<one short sentence, or empty>" },
-      "bullets": [ { "text": "<rewritten bullet>", "status": "complete" | "in-progress" | "blocked",
-                     "src": [<numbers of the raw bullets this came from>], "missing": "<optional note, omit if none>" } ] }
-  ],
-  "blockersAndAsks": [ { "text": "<plain statement of the blocker>", "ask": "<what leadership can do, or 'Awareness only.'>" } ],
-  "offObjective": [ { "text": "<rewritten bullet>", "src": [<numbers>], "reason": "<why it maps to no objective>" } ],
-  "cut": [ { "src": [<numbers>], "reason": "<one line>" } ]
-}
-NEVER copy the original bullet text into your response. Refer to each raw bullet ONLY
-by its number in "src". This keeps the response short.
-Include every objective in "objectives", even with an empty bullets array. Every numbered
-raw bullet must appear in exactly one "src" across the whole response.
-`.trim();
-
-const DRAFT_VALUE_SCHEMA = `
-Respond with ONLY a JSON object, no prose, no code fences:
-{ "businessValue": "<one to three plain sentences>" }
-`.trim();
-
-/**
- * Calls the model with streaming on. Streaming matters here: it keeps bytes moving so
- * the request is never idle, and it lets us hand the caller a progress callback.
- */
-async function callModel(system: string, user: string, maxTokens: number, onTick?: () => void) {
-  const key = Netlify.env.get("ANTHROPIC_API_KEY");
-  if (!key) {
-    throw Object.assign(new Error("The translation service isn't configured yet. Add ANTHROPIC_API_KEY to the site's environment variables."), { status: 503 });
-  }
-  const res = await fetch(ANTHROPIC_URL, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "x-api-key": key,
-      "anthropic-version": "2023-06-01",
-    },
-    body: JSON.stringify({
-      model: MODEL,
-      max_tokens: maxTokens,
-      system,
-      messages: [{ role: "user", content: user }],
-      stream: true,
-    }),
-  });
-  if (!res.ok || !res.body) {
-    const body = await res.text().catch(() => "");
-    throw Object.assign(new Error(`The model request failed (${res.status}). ${body.slice(0, 300)}`), { status: 502 });
-  }
-
-  const reader = res.body.getReader();
-  const decoder = new TextDecoder();
-  let buffer = "";
-  let text = "";
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    buffer += decoder.decode(value, { stream: true });
-    const lines = buffer.split("\n");
-    buffer = lines.pop() || "";
-    for (const line of lines) {
-      if (!line.startsWith("data:")) continue;
-      const payload = line.slice(5).trim();
-      if (!payload || payload === "[DONE]") continue;
-      try {
-        const evt = JSON.parse(payload);
-        if (evt.type === "content_block_delta" && evt.delta?.type === "text_delta") {
-          text += evt.delta.text;
-          if (onTick) onTick();
-        } else if (evt.type === "error") {
-          throw Object.assign(new Error(`The model stopped early: ${evt.error?.message || "unknown error"}`), { status: 502 });
-        }
-      } catch (e: any) {
-        if (e?.status) throw e;
-        // partial or non-JSON keepalive line; ignore
-      }
-    }
-  }
-  return text.trim();
-}
-
-function parseJson(text: string) {
-  const clean = text.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, "").trim();
-  try { return JSON.parse(clean); } catch { /* fall through */ }
-  const start = clean.indexOf("{");
-  const end = clean.lastIndexOf("}");
-  if (start >= 0 && end > start) {
-    try { return JSON.parse(clean.slice(start, end + 1)); } catch { /* fall through */ }
-  }
-  throw Object.assign(new Error("The model returned something that wasn't valid JSON. Try again."), { status: 502 });
-}
 
 function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } });
+}
+
+function jobStore() {
+  return getStore({ name: "execlens-jobs", consistency: "strong" });
 }
 
 export default async (req: Request, _context: Context) => {
@@ -211,47 +30,47 @@ export default async (req: Request, _context: Context) => {
   const mode = payload?.mode;
 
   try {
-    if (mode === "translate") {
+    /* ---- queue a translation ---- */
+    if (mode === "start") {
       const project: Project = payload.project || {};
-      const raw: string = String(payload.raw || "").trim();
-      const period: string = String(payload.period || "").trim();
+      const raw = String(payload.raw || "").trim();
       if (!raw) return json({ error: "Nothing to translate." }, 400);
       if (!project.objectives || !project.objectives.length) return json({ error: "The project has no objectives to map to." }, 400);
 
-      const items: string[] = Array.isArray(payload.items) && payload.items.length
-        ? payload.items.map((x: any) => String(x))
-        : raw.split("\n").map((l) => l.trim()).filter(Boolean);
-      const numbered = items.map((t, i) => `${i + 1}. ${t}`).join("\n");
+      const jobId = `job-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+      await jobStore().setJSON(jobId, { state: "working", startedAt: Date.now() });
 
-      const system = `${EDITORIAL_RULES}\n\n${buildProjectContext(project)}\n\n${TRANSLATE_SCHEMA}`;
-      const user = `REPORTING PERIOD: ${period || "(not stated)"}\n\nRAW BULLETS FROM THE TEAM (refer to these by number in "src"):\n${numbered}`;
-      const text = await callModel(system, user, 3000);
-      const parsed = parseJson(text);
+      // Fire and forget. The background function replies 202 immediately and keeps
+      // running; we do not await its completion.
+      const origin = new URL(req.url).origin;
+      await fetch(`${origin}/.netlify/functions/translate-background`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ...payload, jobId }),
+      }).catch(() => { /* the poll will surface a stuck job */ });
 
-      // Every stated objective appears, in project order, so the report layout is stable.
-      const byId = new Map<string, any>();
-      (parsed.objectives || []).forEach((o: any) => byId.set(String(o.objectiveId), o));
-      parsed.objectives = (project.objectives || []).map((o) => {
-        const hit = byId.get(String(o.id));
-        const timeline = hit && hit.timeline && typeof hit.timeline === "object" ? hit.timeline : { status: "unknown", note: "" };
-        return { objectiveId: o.id, title: o.title, timeline: o.targetDate ? timeline : undefined, bullets: (hit && hit.bullets) || [] };
-      });
-      const srcText = (src: any) => {
-        const nums = Array.isArray(src) ? src : (typeof src === "number" ? [src] : []);
-        return nums
-          .map((n: any) => items[Number(n) - 1])
-          .filter(Boolean)
-          .join(" / ");
-      };
-      parsed.objectives.forEach((o: any) => {
-        (o.bullets || []).forEach((b: any) => { b.source = srcText(b.src); delete b.src; });
-      });
-      parsed.blockersAndAsks = parsed.blockersAndAsks || [];
-      parsed.offObjective = (parsed.offObjective || []).map((x: any) => ({ ...x, source: srcText(x.src), src: undefined }));
-      parsed.cut = (parsed.cut || []).map((x: any) => ({ reason: x.reason, source: srcText(x.src) })).filter((x: any) => x.source);
-      return json(parsed);
+      return json({ jobId });
     }
 
+    /* ---- poll a translation ---- */
+    if (mode === "status") {
+      const jobId = String(payload.jobId || "").trim();
+      if (!jobId) return json({ error: "No job id." }, 400);
+      const job = await jobStore().get(jobId, { type: "json" });
+      if (!job) return json({ state: "working" });
+      if (job.state === "done") {
+        // One read is enough; free the space.
+        await jobStore().delete(jobId).catch(() => {});
+        return json({ state: "done", result: job.result });
+      }
+      if (job.state === "error") {
+        await jobStore().delete(jobId).catch(() => {});
+        return json({ state: "error", error: job.error });
+      }
+      return json({ state: "working" });
+    }
+
+    /* ---- draft a business value line ---- */
     if (mode === "draft-value") {
       const objective = payload.objective || {};
       const project: Project = payload.project || {};
@@ -277,8 +96,7 @@ If the organization or industry is given, make the value specific to that contex
 
     return json({ error: "Unknown mode." }, 400);
   } catch (err: any) {
-    const status = err?.status || 500;
-    return json({ error: err?.message || "Something went wrong." }, status);
+    return json({ error: err?.message || "Something went wrong." }, err?.status || 500);
   }
 };
 

@@ -33,13 +33,22 @@ A project can also carry a **strategic alignment** (the goal or mandate leadersh
 ## Architecture
 
 ```
-public/index.html            single-page app: four screens, demo data, browser storage
-netlify/functions/translate.mts   one serverless function, two modes
-netlify.toml                 publish dir + functions dir
+public/index.html                          single-page app: four screens, demo data, browser storage
+netlify/functions/_shared.mts              the editorial engine: rules, prompt assembly, model call
+netlify/functions/translate.mts            fast endpoint: queue a job, poll a job, draft a value line
+netlify/functions/translate-background.mts long-running translation, writes result to Netlify Blobs
+netlify.toml                               publish dir + functions dir
 ```
 
+**Why two functions.** A full report takes longer than Netlify's 30 second
+synchronous limit. So the browser posts the update, gets a job id back
+immediately, and polls for the result while a background function (15 minute
+limit) does the work and writes it to a blob. The model call streams, and the
+model refers to each raw bullet by number rather than echoing it back, which
+roughly halves what it has to generate.
+
 - **Front end:** vanilla HTML, CSS, and JavaScript. No framework, no build step. Projects are saved in the browser (localStorage) for v1.
-- **Back end:** one Netlify Function at `/api/translate`. It holds the API key, assembles the editorial rules plus the project's objectives into a system prompt, calls the model, and returns structured JSON. The key never reaches the browser.
+- **Back end:** two Netlify Functions sharing one editorial engine. `/api/translate` queues jobs and answers polls; the background function does the translation and stores the result in Netlify Blobs. The API key lives only in the functions and never reaches the browser.
 - **Model:** Anthropic Claude (`claude-sonnet-5` by default, configurable with `EXECLENS_MODEL`).
 
 ## Running it

@@ -10,5 +10,8 @@
   "devDependencies": {
     "@netlify/functions": "^3.0.0",
     "netlify-cli": "^19.0.0"
+  },
+  "dependencies": {
+    "@netlify/blobs": "^8.1.0"
   }
 }

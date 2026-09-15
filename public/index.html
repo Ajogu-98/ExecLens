@@ -730,10 +730,15 @@ function renderTranslate(id) {
     const btn = document.getElementById("t-go");
     btn.disabled = true;
     const count = splitBullets(raw).length;
-    out.innerHTML = `<div class="card"><span class="working"><span class="spin"></span>Reading ${count} bullet${count === 1 ? "" : "s"} against ${p.objectives.length} objective${p.objectives.length === 1 ? "" : "s"}. This takes a few seconds.</span></div>`;
+    out.innerHTML = `<div class="card"><span class="working"><span class="spin"></span>Reading ${count} bullet${count === 1 ? "" : "s"} against ${p.objectives.length} objective${p.objectives.length === 1 ? "" : "s"}. This usually takes 20 to 40 seconds.</span> <span class="elapsed muted small"></span></div>`;
     try {
       const items = splitBullets(raw);
-      const result = await callApi({ mode: "translate", project: p, period, raw, items });
+      const { jobId } = await callApi({ mode: "start", project: p, period, raw, items });
+      if (!jobId) throw new Error("The translation service didn't start the job. Try again.");
+      const result = await pollJob(jobId, (secs) => {
+        const note = out.querySelector(".elapsed");
+        if (note) note.textContent = secs > 20 ? `Still working, ${secs}s. Long updates take a little longer.` : `${secs}s`;
+      });
       renderOutput(out, p, period, result);
     } catch (err) {
       out.innerHTML = `<div class="empty">Nothing to show yet.</div>`;
@@ -908,13 +913,35 @@ async function callApi(payload) {
   let data = null;
   try { data = await res.json(); } catch (e) { /* non-json */ }
   if (!res.ok) {
-    if (res.status === 504 || res.status === 502) {
-      throw new Error("That took longer than the server allows. Try translating fewer bullets at once, or press Translate again.");
+    if (res.status === 504) {
+      throw new Error("Timed out (504). The request ran past the server's limit. Try fewer bullets, or press Translate again.");
     }
     const detail = (data && data.error) ? data.error : `The translation service returned ${res.status}.`;
     throw new Error(detail);
   }
   return data;
+}
+
+/* Poll a queued translation. The work runs in a background function because a full
+   report takes longer than a synchronous function is allowed to run. */
+async function pollJob(jobId, onTick) {
+  const started = Date.now();
+  const LIMIT_MS = 4 * 60 * 1000;
+  let wait = 1500;
+  while (Date.now() - started < LIMIT_MS) {
+    await new Promise(r => setTimeout(r, wait));
+    wait = Math.min(wait + 500, 4000);
+    if (onTick) onTick(Math.round((Date.now() - started) / 1000));
+    let res;
+    try {
+      res = await callApi({ mode: "status", jobId });
+    } catch (e) {
+      continue; // a single failed poll shouldn't kill the job
+    }
+    if (res.state === "done") return res.result;
+    if (res.state === "error") throw new Error(res.error || "The translation failed.");
+  }
+  throw new Error("The translation is taking unusually long. Check the function logs, or try again with fewer bullets.");
 }
 
 /* ---------- misc ---------- */
