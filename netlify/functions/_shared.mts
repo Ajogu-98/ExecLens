@@ -98,7 +98,8 @@ export function buildProjectContext(p: Project): string {
 }
 
 export const TRANSLATE_SCHEMA = `
-Respond with ONLY a JSON object, no prose, no code fences, in this exact shape:
+Your entire reply must be a single JSON object. Start with { and end with }.
+No preamble, no explanation, no code fences. Use this exact shape:
 {
   "objectives": [
     { "objectiveId": "<id from the list>", "title": "<objective title>",
@@ -145,12 +146,7 @@ export async function callModel(system: string, user: string, maxTokens: number,
       model: MODEL,
       max_tokens: maxTokens,
       system,
-      messages: [
-        { role: "user", content: user },
-        // Prefilling an opening brace forces the reply to be the JSON object itself,
-        // with no preamble to strip.
-        { role: "assistant", content: "{" },
-      ],
+      messages: [{ role: "user", content: user }],
       stream: true,
     }),
   });
@@ -196,8 +192,7 @@ export async function callModel(system: string, user: string, maxTokens: number,
       { status: 502 }
     );
   }
-  // The prefilled "{" is not echoed back in the stream, so put it back.
-  return ("{" + text).trim();
+  return text.trim();
 }
 
 export function parseJson(text: string) {
