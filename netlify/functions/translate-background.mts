@@ -42,7 +42,7 @@ export default async (req: Request) => {
     const system = `${EDITORIAL_RULES}\n\n${buildProjectContext(project)}\n\n${TRANSLATE_SCHEMA}`;
     const user = `REPORTING PERIOD: ${period || "(not stated)"}\n\nRAW BULLETS FROM THE TEAM (refer to these by number in "src"):\n${numbered}`;
 
-    const text = await callModel(system, user, 3000);
+    const text = await callModel(system, user, 8000);
     const parsed = parseJson(text);
 
     // Every stated objective appears, in project order, so the report layout is stable.

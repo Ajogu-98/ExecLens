@@ -145,7 +145,12 @@ export async function callModel(system: string, user: string, maxTokens: number,
       model: MODEL,
       max_tokens: maxTokens,
       system,
-      messages: [{ role: "user", content: user }],
+      messages: [
+        { role: "user", content: user },
+        // Prefilling an opening brace forces the reply to be the JSON object itself,
+        // with no preamble to strip.
+        { role: "assistant", content: "{" },
+      ],
       stream: true,
     }),
   });
@@ -158,6 +163,7 @@ export async function callModel(system: string, user: string, maxTokens: number,
   const decoder = new TextDecoder();
   let buffer = "";
   let text = "";
+  let stopReason = "";
   while (true) {
     const { done, value } = await reader.read();
     if (done) break;
@@ -173,6 +179,8 @@ export async function callModel(system: string, user: string, maxTokens: number,
         if (evt.type === "content_block_delta" && evt.delta?.type === "text_delta") {
           text += evt.delta.text;
           if (onTick) onTick();
+        } else if (evt.type === "message_delta" && evt.delta?.stop_reason) {
+          stopReason = evt.delta.stop_reason;
         } else if (evt.type === "error") {
           throw Object.assign(new Error(`The model stopped early: ${evt.error?.message || "unknown error"}`), { status: 502 });
         }
@@ -182,7 +190,14 @@ export async function callModel(system: string, user: string, maxTokens: number,
       }
     }
   }
-  return text.trim();
+  if (stopReason === "max_tokens") {
+    throw Object.assign(
+      new Error("The report was longer than the response limit allows, so it came back incomplete. Try translating fewer bullets at once."),
+      { status: 502 }
+    );
+  }
+  // The prefilled "{" is not echoed back in the stream, so put it back.
+  return ("{" + text).trim();
 }
 
 export function parseJson(text: string) {
@@ -193,6 +208,10 @@ export function parseJson(text: string) {
   if (start >= 0 && end > start) {
     try { return JSON.parse(clean.slice(start, end + 1)); } catch { /* fall through */ }
   }
-  throw Object.assign(new Error("The model returned something that wasn't valid JSON. Try again."), { status: 502 });
+  const peek = clean.slice(0, 160).replace(/\s+/g, " ");
+  throw Object.assign(
+    new Error(`The model's reply couldn't be read as a report. It began: "${peek}"`),
+    { status: 502 }
+  );
 }
 
