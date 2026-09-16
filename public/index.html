@@ -188,6 +188,7 @@
   .raw .btn.primary { color: #1A1204; border-color: var(--gold); }
   .panel-title { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 8px; gap: 10px; }
   .raw textarea { min-height: 320px; font-size: 14.5px; }
+  .raw .draft-note { min-height: 18px; color: var(--ok); font-size: 12.5px; }
 
   /* the report: the one place that should feel printed */
   .out .doc { padding: 34px 38px 32px; border-top: 3px solid var(--gold); }
@@ -470,6 +471,25 @@ function saveProjects(list) {
   try { localStorage.setItem(STORE_KEY, JSON.stringify(projects)); } catch (e) { /* storage may be unavailable */ }
 }
 function uid(prefix) { return prefix + "-" + Math.random().toString(36).slice(2, 8); }
+
+/* The update someone is typing is their work, not scratch. Keep it in this browser
+   so leaving the screen, editing objectives, or closing the tab never loses it. */
+const DRAFT_KEY = (id) => `execlens.draft.${id}`;
+function loadDraft(projectId) {
+  try {
+    const raw = localStorage.getItem(DRAFT_KEY(projectId));
+    return raw ? JSON.parse(raw) : null;
+  } catch (e) { return null; }
+}
+function saveDraft(projectId, patch) {
+  try {
+    const current = loadDraft(projectId) || {};
+    localStorage.setItem(DRAFT_KEY(projectId), JSON.stringify({ ...current, ...patch, savedAt: Date.now() }));
+  } catch (e) { /* storage full or blocked; the screen still works */ }
+}
+function clearDraft(projectId) {
+  try { localStorage.removeItem(DRAFT_KEY(projectId)); } catch (e) {}
+}
 function getProject(id) { return projects.find(p => p.id === id); }
 
 /* ---------- router ---------- */
@@ -730,6 +750,7 @@ function renderEditor(id) {
   const del = document.getElementById("delete");
   if (del) del.addEventListener("click", () => {
     if (!confirm(`Delete "${p.name}"? This can't be undone.`)) return;
+    clearDraft(p.id);
     saveProjects(projects.filter(x => x.id !== p.id));
     location.hash = "#/projects";
   });
@@ -746,6 +767,9 @@ function renderTranslate(id) {
     return;
   }
   const p = getProject(id) || projects[0];
+  const draft = loadDraft(p.id) || {};
+  const startingRaw = draft.raw !== undefined ? draft.raw : (p.sampleRaw || "");
+  const startingPeriod = draft.period !== undefined ? draft.period : currentPeriodLabel(p.cadence);
   const options = projects.map(x => `<option value="${x.id}" ${x.id === p.id ? "selected" : ""}>${esc(x.name)}</option>`).join("");
 
   main.innerHTML = `
@@ -762,18 +786,22 @@ function renderTranslate(id) {
         </div>
         <div class="field">
           <label>Reporting period</label>
-          <input type="text" id="t-period" value="${esc(currentPeriodLabel(p.cadence))}">
+          <input type="text" id="t-period" value="${esc(startingPeriod)}">
         </div>
         <div class="field">
           <div class="panel-title">
             <label style="margin:0">Raw bullets from the team</label>
-            ${p.sampleRaw ? `<button type="button" class="btn ghost small" id="t-sample">Use sample</button>` : ""}
+            <span class="row" style="gap:6px">
+              ${p.sampleRaw ? `<button type="button" class="btn ghost small" id="t-sample">Use sample</button>` : ""}
+              <button type="button" class="btn ghost small" id="t-clear">Clear</button>
+            </span>
           </div>
-          <textarea id="t-raw" placeholder="Paste the update as the team wrote it. Jargon, ticket numbers, meeting notes, all of it.">${esc(p.sampleRaw || "")}</textarea>
+          <textarea id="t-raw" placeholder="Paste the update as the team wrote it. Jargon, ticket numbers, meeting notes, all of it.">${esc(startingRaw)}</textarea>
+          <div class="hint draft-note" id="t-draftnote"></div>
         </div>
         <div class="row">
           <button type="button" class="btn primary" id="t-go">Translate</button>
-          <a class="btn ghost small" href="#/project/${p.id}">Edit objectives</a>
+          <button type="button" class="btn ghost small" id="t-edit">Edit objectives</button>
         </div>
         <div id="t-msg" style="margin-top:12px"></div>
       </div>
@@ -784,13 +812,60 @@ function renderTranslate(id) {
     </div>
   `;
 
-  document.getElementById("t-project").addEventListener("change", (e) => { location.hash = "#/translate/" + e.target.value; });
+  const rawBox = document.getElementById("t-raw");
+  const periodBox = document.getElementById("t-period");
+  const draftNote = document.getElementById("t-draftnote");
+
+  let noteTimer, saveTimer;
+  function markSaved() {
+    if (!draftNote) return;
+    draftNote.textContent = "Saved in this browser";
+    clearTimeout(noteTimer);
+    noteTimer = setTimeout(() => { draftNote.textContent = ""; }, 2200);
+  }
+  function queueSave() {
+    clearTimeout(saveTimer);
+    saveTimer = setTimeout(() => {
+      saveDraft(p.id, { raw: rawBox.value, period: periodBox.value });
+      markSaved();
+    }, 500);
+  }
+  rawBox.addEventListener("input", queueSave);
+  periodBox.addEventListener("input", queueSave);
+  // Save immediately on the way out, so nothing is lost to the debounce.
+  window.addEventListener("beforeunload", () => saveDraft(p.id, { raw: rawBox.value, period: periodBox.value }));
+
+  document.getElementById("t-project").addEventListener("change", (e) => {
+    saveDraft(p.id, { raw: rawBox.value, period: periodBox.value });
+    location.hash = "#/translate/" + e.target.value;
+  });
+
   const sampleBtn = document.getElementById("t-sample");
-  if (sampleBtn) sampleBtn.addEventListener("click", () => { document.getElementById("t-raw").value = p.sampleRaw; });
+  if (sampleBtn) sampleBtn.addEventListener("click", () => {
+    if (rawBox.value.trim() && !confirm("Replace what's in the box with the sample update?")) return;
+    rawBox.value = p.sampleRaw;
+    saveDraft(p.id, { raw: rawBox.value, period: periodBox.value });
+    markSaved();
+  });
+
+  const clearBtn = document.getElementById("t-clear");
+  if (clearBtn) clearBtn.addEventListener("click", () => {
+    if (rawBox.value.trim() && !confirm("Clear the box? This can't be undone.")) return;
+    rawBox.value = "";
+    saveDraft(p.id, { raw: "", period: periodBox.value });
+    rawBox.focus();
+  });
+
+  const editBtn = document.getElementById("t-edit");
+  if (editBtn) editBtn.addEventListener("click", () => {
+    saveDraft(p.id, { raw: rawBox.value, period: periodBox.value });
+    location.hash = "#/project/" + p.id;
+  });
 
   document.getElementById("t-go").addEventListener("click", async () => {
-    const raw = document.getElementById("t-raw").value.trim();
-    const period = document.getElementById("t-period").value.trim();
+    const raw = rawBox.value.trim();
+    const period = periodBox.value.trim();
+    saveDraft(p.id, { raw: rawBox.value, period });
     const out = document.getElementById("t-out");
     const msg = document.getElementById("t-msg");
     msg.innerHTML = "";
