@@ -226,6 +226,20 @@
   .out .cut li { font-family: var(--serif); font-size: 14.5px; line-height: 1.55; margin: 7px 0; color: #4A5B6E; }
   .out .cut li::marker { color: #B9C2CC; }
   .out .cut .reason { font-family: var(--sans); font-size: 13px; color: #64748B; display: block; margin-top: 2px; }
+  .out .ed { outline: none; border-radius: 2px; padding: 0 2px; margin: 0 -2px; }
+  .out .ed:hover { background: #FBF6EA; }
+  .out .ed:focus { background: #FDFAF2; box-shadow: 0 0 0 2px rgba(201, 163, 78, .5); }
+  .out .drop {
+    font-family: var(--sans); font-size: 12px; color: var(--ink-soft);
+    background: none; border: none; padding: 0 4px; opacity: 0;
+    text-decoration: underline; transition: opacity .12s;
+  }
+  .out li:hover .drop, .out .drop:focus { opacity: 1; }
+  .out .drop:hover { color: var(--stop); }
+  .out .edit-hint {
+    font-family: var(--sans); font-size: 13px; color: var(--ink-soft);
+    margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--line);
+  }
   .out-actions { margin-top: 14px; display: flex; gap: 8px; flex-wrap: wrap; }
   details.source { margin-top: 7px; }
   details.source summary {
@@ -856,6 +870,12 @@ function renderTranslate(id) {
     rawBox.focus();
   });
 
+  // If this project already has a translated report, bring it back with its edits.
+  if (draft.report) {
+    try { renderOutput(document.getElementById("t-out"), p, draft.reportPeriod || startingPeriod, draft.report); }
+    catch (e) { /* shape changed between versions; the user can translate again */ }
+  }
+
   const editBtn = document.getElementById("t-edit");
   if (editBtn) editBtn.addEventListener("click", () => {
     saveDraft(p.id, { raw: rawBox.value, period: periodBox.value });
@@ -882,6 +902,7 @@ function renderTranslate(id) {
         const note = out.querySelector(".elapsed");
         if (note) note.textContent = secs > 25 ? `Still working, ${secs}s. Long updates take longer.` : `${secs}s`;
       });
+      saveDraft(p.id, { report: result, reportPeriod: period });
       renderOutput(out, p, period, result);
     } catch (err) {
       out.innerHTML = `<div class="empty">Nothing to show yet.</div>`;
@@ -896,8 +917,10 @@ function renderOutput(out, p, period, r) {
     if (s === "blocked") return `<span class="status blocked">Blocked</span>`;
     return `<span class="status">In progress</span>`;
   };
-  const bullet = (b) => `
-    <li>${esc(b.text)} ${statusLabel(b.status)}
+  const ed = (path, text) => `<span class="ed" contenteditable="true" spellcheck="true" data-path="${path}">${esc(text)}</span>`;
+  const bullet = (b, path) => `
+    <li>${ed(path + ".text", b.text)} ${statusLabel(b.status)}
+      <button type="button" class="drop" title="Remove this line from the report" data-drop="${path}">Remove</button>
       ${b.source ? `<details class="source"><summary>What the team wrote</summary><div class="src">${esc(b.source)}</div></details>` : ""}
     </li>`;
 
@@ -916,18 +939,19 @@ function renderOutput(out, p, period, r) {
     const due = date ? `<span class="muted small">Target ${esc(date)}</span>` : "";
     return (pill || due) ? `<span class="objective-meta">${due} ${pill}</span>` : "";
   };
-  const objectiveBlocks = (r.objectives || []).filter(o => (o.bullets || []).length).map(o => `
+  const objectiveBlocks = (r.objectives || []).map((o, oi) => ({ o, oi })).filter(x => (x.o.bullets || []).length).map(({ o, oi }) => `
     <div class="objective-block">
       <h3><span>${esc(o.title)}</span>${timelinePill(o)}</h3>
-      ${o.timeline && o.timeline.note && o.timeline.status !== "on-track" ? `<div class="timeline-note">${esc(o.timeline.note)}</div>` : ""}
-      <ul>${o.bullets.map(bullet).join("")}</ul>
+      ${o.timeline && o.timeline.note && o.timeline.status !== "on-track" ? `<div class="timeline-note">${ed(`objectives.${oi}.timeline.note`, o.timeline.note)}</div>` : ""}
+      <ul>${o.bullets.map((b, bi) => bullet(b, `objectives.${oi}.bullets.${bi}`)).join("")}</ul>
     </div>`).join("");
 
   const asks = (r.blockersAndAsks || []);
   const askBlock = asks.length ? `
     <div class="section-flag">
       <h3>Needs leadership attention</h3>
-      <ul>${asks.map(a => `<li>${esc(a.text)}${a.ask ? ` <span class="ask">Ask: ${esc(a.ask)}</span>` : ""}</li>`).join("")}</ul>
+      <ul>${asks.map((a, i) => `<li>${ed(`blockersAndAsks.${i}.text`, a.text)}${a.ask ? ` <span class="ask">Ask: ${ed(`blockersAndAsks.${i}.ask`, a.ask)}</span>` : ""}
+        <button type="button" class="drop" data-drop="blockersAndAsks.${i}">Remove</button></li>`).join("")}</ul>
     </div>` : "";
 
   const off = (r.offObjective || []);
@@ -935,7 +959,9 @@ function renderOutput(out, p, period, r) {
     <div class="section-flag">
       <h3>Doesn't tie to a stated objective</h3>
       <div class="why">Review before sending. Either it's out of scope, or the project is missing an objective.</div>
-      <ul>${off.map(a => `<li>${esc(a.text)}${a.reason ? `<span class="reason">${esc(a.reason)}</span>` : ""}</li>`).join("")}</ul>
+      <ul>${off.map((a, i) => `<li>${ed(`offObjective.${i}.text`, a.text)}
+        <button type="button" class="drop" data-drop="offObjective.${i}">Remove</button>
+        ${a.reason ? `<span class="reason">${esc(a.reason)}</span>` : ""}</li>`).join("")}</ul>
     </div>` : "";
 
   const cut = (r.cut || []);
@@ -954,11 +980,61 @@ function renderOutput(out, p, period, r) {
       ${askBlock}
       ${offBlock}
       ${cutBlock}
+      <div class="edit-hint">Any line here can be edited. Click into it and type, then copy when it reads the way your team would say it.</div>
     </div>
     <div class="out-actions">
       <button type="button" class="btn small" id="copy-text">Copy as plain text</button>
       <button type="button" class="btn ghost small" id="copy-md">Copy as Markdown</button>
     </div>`;
+
+  /* Edits go straight back into the report object, so the copy buttons and the
+     saved draft always reflect what is on screen. */
+  const doc = document.getElementById("doc");
+  const setAt = (path, value) => {
+    const parts = path.split(".");
+    let node = r;
+    for (let i = 0; i < parts.length - 1; i++) node = node[parts[i]];
+    node[parts[parts.length - 1]] = value;
+  };
+  const removeAt = (path) => {
+    const parts = path.split(".");
+    const idx = Number(parts.pop());
+    let node = r;
+    for (const key of parts) node = node[key];
+    if (Array.isArray(node)) node.splice(idx, 1);
+  };
+
+  let persistTimer;
+  const persist = () => {
+    clearTimeout(persistTimer);
+    persistTimer = setTimeout(() => saveDraft(p.id, { report: r, reportPeriod: period }), 500);
+  };
+
+  doc.addEventListener("input", (e) => {
+    const cell = e.target.closest(".ed");
+    if (!cell) return;
+    setAt(cell.dataset.path, cell.textContent.trim());
+    persist();
+  });
+
+  // Keep pasted text plain, and keep a bullet to a single paragraph.
+  doc.addEventListener("paste", (e) => {
+    if (!e.target.closest(".ed")) return;
+    e.preventDefault();
+    const text = (e.clipboardData || window.clipboardData).getData("text/plain").replace(/\s+/g, " ");
+    document.execCommand("insertText", false, text);
+  });
+  doc.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" && e.target.closest(".ed")) { e.preventDefault(); e.target.blur(); }
+  });
+
+  doc.addEventListener("click", (e) => {
+    const btn = e.target.closest(".drop");
+    if (!btn) return;
+    removeAt(btn.dataset.drop);
+    saveDraft(p.id, { report: r, reportPeriod: period });
+    renderOutput(out, p, period, r);
+  });
 
   const toText = (md) => {
     const lines = [];
