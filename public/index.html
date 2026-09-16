@@ -33,6 +33,7 @@
     --warn-bg: #F8EEDA;
     --stop: #9E3A2B;
     --stop-bg: #F9E9E6;
+    --info: #1B5A86;
 
     --serif: "Source Serif 4", Georgia, "Times New Roman", serif;
     --sans: "Inter Tight", -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
@@ -207,21 +208,36 @@
     max-width: 68ch;
   }
   .out li::marker { color: var(--gold); }
-  .out li .status { font-family: var(--sans); font-size: 12.5px; color: var(--ink-soft); }
-  .out li .status.blocked { color: var(--stop); font-weight: 600; }
+  .out li .status {
+    font-family: var(--sans); font-size: 13px; font-weight: 600;
+    color: var(--info); white-space: nowrap;
+  }
+  .out li .status.blocked { color: var(--stop); }
   .out .section-flag { margin: 28px 0 4px; padding: 16px 18px; background: var(--warn-bg); border-radius: var(--radius); }
   .out .section-flag h3 { color: var(--warn); border: none; padding: 0; margin-bottom: 4px; display: block; }
   .out .section-flag .why { color: #7A5316; font-size: 13.5px; margin-bottom: 8px; }
   .out .section-flag li::marker { color: var(--warn); }
+  .out .section-flag .reason { font-family: var(--sans); font-size: 13px; color: #7A5316; display: block; margin-top: 3px; }
   .out .ask { font-family: var(--sans); font-size: 14.5px; font-weight: 600; }
-  .out .cut { margin-top: 28px; padding-top: 16px; border-top: 1px solid var(--line); color: var(--ink-soft); font-size: 13.5px; }
+  .out .cut { margin-top: 30px; padding-top: 16px; border-top: 1px solid var(--line); color: #4A5B6E; font-size: 14.5px; }
+  .out .cut strong { font-family: var(--sans); font-size: 13.5px; }
   .out .cut strong { color: var(--ink); }
-  .out .cut li { font-family: var(--sans); font-size: 13.5px; margin: 5px 0; color: var(--ink-soft); }
-  .out .cut li::marker { color: var(--line); }
+  .out .cut li { font-family: var(--serif); font-size: 14.5px; line-height: 1.55; margin: 7px 0; color: #4A5B6E; }
+  .out .cut li::marker { color: #B9C2CC; }
+  .out .cut .reason { font-family: var(--sans); font-size: 13px; color: #64748B; display: block; margin-top: 2px; }
   .out-actions { margin-top: 14px; display: flex; gap: 8px; flex-wrap: wrap; }
-  details.source { margin-top: 5px; }
-  details.source summary { color: var(--ink-soft); font-family: var(--sans); font-size: 12.5px; cursor: pointer; }
-  details.source .src { color: var(--ink-soft); font-family: var(--sans); font-size: 13px; font-style: italic; margin-top: 5px; line-height: 1.5; }
+  details.source { margin-top: 7px; }
+  details.source summary {
+    color: #3C5061; font-family: var(--sans); font-size: 13.5px; cursor: pointer;
+    display: inline-block; padding: 2px 9px 2px 8px;
+    background: var(--paper-2); border: 1px solid var(--line); border-radius: 2px;
+  }
+  details.source summary:hover { color: var(--ink); border-color: #C3CBD4; }
+  details.source[open] summary { color: var(--ink); font-weight: 500; }
+  details.source .src {
+    color: #3C5061; font-family: var(--sans); font-size: 14px; font-style: italic;
+    margin-top: 6px; line-height: 1.55; padding-left: 12px; border-left: 2px solid var(--line);
+  }
 
   .reveal { animation: reveal .4s ease-out both; }
   @keyframes reveal { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
@@ -783,14 +799,14 @@ function renderTranslate(id) {
     const btn = document.getElementById("t-go");
     btn.disabled = true;
     const count = splitBullets(raw).length;
-    out.innerHTML = `<div class="card"><span class="working"><span class="spin"></span>Reading ${count} bullet${count === 1 ? "" : "s"} against ${p.objectives.length} objective${p.objectives.length === 1 ? "" : "s"}. This usually takes 20 to 40 seconds.</span> <span class="elapsed muted small"></span></div>`;
+    out.innerHTML = `<div class="card"><span class="working"><span class="spin"></span>Reading ${count} bullet${count === 1 ? "" : "s"} against ${p.objectives.length} objective${p.objectives.length === 1 ? "" : "s"}. This usually takes 10 to 20 seconds.</span> <span class="elapsed muted small"></span></div>`;
     try {
       const items = splitBullets(raw);
       const { jobId } = await callApi({ mode: "start", project: p, period, raw, items });
       if (!jobId) throw new Error("The translation service didn't start the job. Try again.");
       const result = await pollJob(jobId, (secs) => {
         const note = out.querySelector(".elapsed");
-        if (note) note.textContent = secs > 20 ? `Still working, ${secs}s. Long updates take a little longer.` : `${secs}s`;
+        if (note) note.textContent = secs > 25 ? `Still working, ${secs}s. Long updates take longer.` : `${secs}s`;
       });
       renderOutput(out, p, period, result);
     } catch (err) {
@@ -845,14 +861,14 @@ function renderOutput(out, p, period, r) {
     <div class="section-flag">
       <h3>Doesn't tie to a stated objective</h3>
       <div class="why">Review before sending. Either it's out of scope, or the project is missing an objective.</div>
-      <ul>${off.map(a => `<li>${esc(a.text)}${a.reason ? ` <span class="muted small">(${esc(a.reason)})</span>` : ""}</li>`).join("")}</ul>
+      <ul>${off.map(a => `<li>${esc(a.text)}${a.reason ? `<span class="reason">${esc(a.reason)}</span>` : ""}</li>`).join("")}</ul>
     </div>` : "";
 
   const cut = (r.cut || []);
   const cutBlock = cut.length ? `
     <div class="cut">
       <strong>Left out of the report</strong>
-      <ul>${cut.map(c => `<li>${esc(c.source)} <span>(${esc(c.reason)})</span></li>`).join("")}</ul>
+      <ul>${cut.map(c => `<li>${esc(c.source)} <span class="reason">${esc(c.reason)}</span></li>`).join("")}</ul>
     </div>` : "";
 
   out.innerHTML = `
@@ -980,10 +996,10 @@ async function callApi(payload) {
 async function pollJob(jobId, onTick) {
   const started = Date.now();
   const LIMIT_MS = 4 * 60 * 1000;
-  let wait = 1500;
+  let wait = 900;
   while (Date.now() - started < LIMIT_MS) {
     await new Promise(r => setTimeout(r, wait));
-    wait = Math.min(wait + 500, 4000);
+    wait = Math.min(wait + 200, 1800);
     if (onTick) onTick(Math.round((Date.now() - started) / 1000));
     let res;
     try {

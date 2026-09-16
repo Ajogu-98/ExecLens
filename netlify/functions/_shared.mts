@@ -4,7 +4,7 @@
  * (full translations, which exceed the 30 second synchronous limit).
  */
 
-const MODEL = Netlify.env.get("EXECLENS_MODEL") || "claude-sonnet-5";
+const MODEL = Netlify.env.get("EXECLENS_MODEL") || "claude-haiku-4-5-20251001";
 const ANTHROPIC_URL = "https://api.anthropic.com/v1/messages";
 
 export type Objective = { id: string; title: string; description?: string; businessValue?: string; targetDate?: string };
@@ -39,6 +39,7 @@ PLAIN-LANGUAGE RULES:
 - Assume the reader knows no IT acronyms. Spell one out only if it is essential;
   otherwise replace it with a plain phrase.
 - Short sentences. Two sentences per bullet is the norm, three is the maximum.
+  Aim for 35 words per bullet. Long bullets are slower to produce and harder to read.
 - BANNED words and phrases (they describe motion, not results): enabling,
   supporting, partnered with, efforts, initiate, leverage, worked toward, made
   headway, assisted with, collaborated with, continued to, in accordance with.
@@ -65,14 +66,22 @@ WHAT TO KEEP, FLAG, OR CUT:
   fix plus its validation) into a single bullet.
 - NEVER INVENT. If a bullet lacks a fact the report needs (the actual user impact,
   a count, whether a tool is the team's or a vendor's), write the bullet without
-  the missing fact and set "missing" to a short note about what to ask the team.
+  that fact rather than guessing at it.
 - Be economical. Do not restate the raw text anywhere in your response.
 
+NEVER write an objective's id (o1, o2, o3) in any sentence a reader sees. Readers
+never see those ids. Refer to an objective by its title or by plain description,
+e.g. "the data protection work", not "(see o3)".
+
 TIMELINE (only for objectives with a target date):
-- Judge on-track / at-risk / slipped ONLY from what the team wrote and the date.
-  Evidence of risk: a stated slip, a blocker that gates the objective, a dependency
-  not received, a phase that has not started when the date is near. If the bullets
-  give no timeline evidence, use "unknown" and leave the note empty. Never guess.
+- Judge an objective's timeline ONLY from the bullets you mapped to THAT objective,
+  plus its target date. Do not mark an objective at risk because a different
+  objective has a problem. Evidence of risk: a stated slip, a blocker on this
+  objective's own work, a dependency this objective is waiting on, or a phase that
+  has not started when its date is near. If its own bullets give no timeline
+  evidence, use "unknown" and leave the note empty. Never guess.
+- The note is one short sentence naming the specific threat to THIS objective's date.
+  Leave it empty for on-track and unknown.
 - "slipped" means the team said the date will not be met. "at-risk" means there is
   a specific threat to the date. Everything else with positive progress is "on-track".
 `.trim();
@@ -105,7 +114,7 @@ No preamble, no explanation, no code fences. Use this exact shape:
     { "objectiveId": "<id from the list>", "title": "<objective title>",
       "timeline": { "status": "on-track" | "at-risk" | "slipped" | "unknown", "note": "<one short sentence, or empty>" },
       "bullets": [ { "text": "<rewritten bullet>", "status": "complete" | "in-progress" | "blocked",
-                     "src": [<numbers of the raw bullets this came from>], "missing": "<optional note, omit if none>" } ] }
+                     "src": [<numbers of the raw bullets this came from>] } ] }
   ],
   "blockersAndAsks": [ { "text": "<plain statement of the blocker>", "ask": "<what leadership can do, or 'Awareness only.'>" } ],
   "offObjective": [ { "text": "<rewritten bullet>", "src": [<numbers>], "reason": "<why it maps to no objective>" } ],
