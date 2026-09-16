@@ -337,7 +337,7 @@ const DEMO_PROJECTS = [
     name: "Salesforce Consolidation",
     org: "Regional bank",
     industry: "Financial services",
-    cadence: "Biweekly",
+    cadence: "Bi-weekly",
     mission: "",
     alignsTo: "Bank strategic plan, Pillar 2: one relationship, one record",
     successCriteria: "",
@@ -519,13 +519,12 @@ function splitBullets(raw) {
 function currentPeriodLabel(cadence) {
   const d = new Date();
   const fmt = (x) => x.toLocaleDateString(undefined, { month: "short", day: "numeric" });
-  if (cadence === "Biweekly") {
-    const s = new Date(d); s.setDate(d.getDate() - 13);
-    return `${fmt(s)} to ${fmt(d)}`;
-  }
-  if (cadence === "Sprint") return "Current sprint";
-  const s = new Date(d); s.setDate(d.getDate() - 6);
-  return `${fmt(s)} to ${fmt(d)}`;
+  const back = (days) => { const s = new Date(d); s.setDate(d.getDate() - days); return s; };
+  if (cadence === "Bi-weekly" || cadence === "Biweekly") return `${fmt(back(13))} to ${fmt(d)}`;
+  if (cadence === "Monthly") return d.toLocaleDateString(undefined, { month: "long", year: "numeric" });
+  if (cadence === "Quarterly") return `Q${Math.floor(d.getMonth() / 3) + 1} ${d.getFullYear()}`;
+  if (cadence === "Other") return "";
+  return `${fmt(back(6))} to ${fmt(d)}`;
 }
 
 /* ---------- screen: projects ---------- */
@@ -612,7 +611,7 @@ function renderEditor(id) {
           <div class="field" style="flex:1;min-width:200px"><label>Industry</label><input type="text" id="f-industry" value="${esc(p.industry)}" placeholder="e.g. Healthcare"></div>
           <div class="field" style="min-width:160px"><label>Reporting cadence</label>
             <select id="f-cadence">
-              ${["Weekly", "Biweekly", "Sprint"].map(c => `<option ${p.cadence === c ? "selected" : ""}>${c}</option>`).join("")}
+              ${["Weekly", "Bi-weekly", "Monthly", "Quarterly", "Other"].map(c => `<option ${p.cadence === c ? "selected" : ""}>${c}</option>`).join("")}
             </select>
           </div>
         </div>
@@ -946,15 +945,16 @@ function renderRules() {
         ${["enabling", "supporting", "partnered with", "efforts", "initiate", "leverage", "worked toward", "made headway", "assisted with", "collaborated with", "continued to"].map(w => `<span>${w}</span>`).join("")}
       </div>
 
-      <h2>What never makes it into the report</h2>
+      <h2>Every bullet goes through the same three questions, in order</h2>
+      <p>The order is fixed, so the same bullet lands in the same place every time.</p>
       <ul>
-        <li>Routine meeting attendance ("attended the weekly sync").</li>
-        <li>Upcoming or scheduled activities. Those belong in a plan, not an accomplishment list.</li>
-        <li>Internal tuning or maintenance with no impact outside the team.</li>
-        <li>Documentation help, template work, and other support tasks.</li>
-        <li>Anything that conveys no impact, no risk, and no decision.</li>
+        <li><strong>Is it only a meeting, a plan, a document edit, or internal tidying?</strong> Then it's cut, and listed at the bottom with the reason so nothing disappears silently. A bullet that also reports a result is not cut.</li>
+        <li><strong>Does it move a stated objective forward, or hold one back?</strong> Then it belongs to that objective. Preparatory work counts: if it exists to deliver an objective, it goes there. When two objectives fit equally, the first one listed wins.</li>
+        <li><strong>Neither?</strong> Then it's real work that serves no stated objective, and it's set aside for review with a one-line reason.</li>
       </ul>
-      <p class="muted small">Cut items are listed at the bottom of every report with the reason, so nothing disappears silently.</p>
+
+      <h2>The same update produces the same report</h2>
+      <p>A status report is a record, so it should not change between runs. ExecLens asks the model for its single most likely answer rather than letting it sample, and the three questions above are answered in a fixed order. Run the same update twice and you should get the same report.</p>
 
       <h2>Dates and success criteria do real work</h2>
       <p>When an objective has a target date, each report says whether it's on track, at risk, or slipped, based only on what the team wrote. When a project has success criteria or a strategic goal it aligns to, those become a second source for "why it matters," phrased in leadership's own words rather than the team's.</p>

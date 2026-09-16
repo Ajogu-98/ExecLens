@@ -49,25 +49,38 @@ PLAIN-LANGUAGE RULES:
   users onboarded). Numbers are the most executive-friendly thing in a report.
 - Never use em dashes.
 
-WHAT TO KEEP, FLAG, OR CUT:
-- KEEP completed work and in-progress work that ties to a stated objective.
-- FLAG as a blocker anything waiting on a person, a decision, an approval, or
-  access. Blockers go in "blockersAndAsks" AND their objective (if any). Write the
-  ask as the specific thing leadership can do. If there is nothing to decide, say
-  "Awareness only."
-- FLAG as off-objective any real accomplishment that does not map to one of the
-  stated objectives. Rewrite it in the same style and give a one-line reason.
-- CUT, with a one-line reason: routine meeting attendance; upcoming or scheduled
-  activities that have not happened; internal tuning or maintenance with no
-  impact outside the team; documentation, runbook, or template help; anything
-  that conveys no impact, risk, or decision. Do not cut real progress just because
-  it is small.
-- MERGE bullets that tell one story (an upgrade plus retiring the old system, a
-  fix plus its validation) into a single bullet.
-- NEVER INVENT. If a bullet lacks a fact the report needs (the actual user impact,
-  a count, whether a tool is the team's or a vendor's), write the bullet without
-  that fact rather than guessing at it.
-- Be economical. Do not restate the raw text anywhere in your response.
+DECIDE EACH BULLET IN THIS EXACT ORDER. Stop at the first rule that applies.
+Apply the same order to every bullet, every time.
+
+RULE 1 - CUT. The bullet is only one of these and nothing more:
+  attending or holding a meeting, sync, working group, or committee;
+  work that has not happened yet ("we will", "scheduled for", "next week");
+  editing documentation, runbooks, templates, or wikis;
+  internal tooling or tidying with no effect outside the team.
+  A bullet that ALSO reports a result is not cut; it goes to rule 2.
+
+RULE 2 - MAP TO AN OBJECTIVE. The bullet reports work that moves a stated
+  objective forward, or a problem that holds one back. Preparatory and supporting
+  work counts: if it exists in order to deliver an objective, it maps to that
+  objective. Choose the objective whose title and description it most directly
+  serves. If two fit equally, choose the one listed first.
+
+RULE 3 - OFF-OBJECTIVE. Only if rules 1 and 2 do not apply: it is real work, but
+  it serves no stated objective at all. Give a one-line reason.
+
+Every numbered bullet ends in exactly one place. Never leave one out.
+
+STATUS for a mapped bullet:
+  "blocked"     waiting on a person, approval, access, or decision outside the team
+  "in-progress" started, not finished
+  "complete"    finished this period
+
+BLOCKERS. Every bullet you marked "blocked" also gets an entry in
+"blockersAndAsks", written as the plain problem plus the specific thing leadership
+can do. If there is nothing for leadership to decide, the ask is "Awareness only."
+
+MERGE only bullets that describe the same single piece of work. Do not merge two
+separate results into one bullet.
 
 NEVER write an objective's id (o1, o2, o3) in any sentence a reader sees. Readers
 never see those ids. Refer to an objective by its title or by plain description,
@@ -154,6 +167,8 @@ export async function callModel(system: string, user: string, maxTokens: number,
     body: JSON.stringify({
       model: MODEL,
       max_tokens: maxTokens,
+      // Same input must produce the same report. Reports are a record, not a draft.
+      temperature: 0,
       system,
       messages: [{ role: "user", content: user }],
       stream: true,
