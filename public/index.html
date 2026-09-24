@@ -148,7 +148,7 @@
 
   /* ---------- projects ---------- */
   .hero { margin-bottom: 38px; padding-bottom: 30px; border-bottom: 1px solid var(--navy-line); }
-  .hero h1 { max-width: 17ch; margin-bottom: 14px; color: #fff; }
+  .hero h1 { max-width: 30ch; text-wrap: balance; margin-bottom: 14px; color: #fff; }
   .projects { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 16px; }
   .proj { padding: 20px 22px; display: flex; flex-direction: column; gap: 7px; }
   .proj .org { color: var(--ink-soft); font-size: 13px; }
@@ -240,6 +240,17 @@
     font-family: var(--sans); font-size: 13px; color: var(--ink-soft);
     margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--line);
   }
+  .team-check {
+    margin-bottom: 16px; padding: 16px 20px; background: var(--navy-800);
+    border: 1px solid var(--navy-line); border-left: 3px solid var(--gold); border-radius: var(--radius);
+    color: var(--navy-text);
+  }
+  .team-check h3 { font-family: var(--sans); font-size: 14.5px; font-weight: 600; color: #fff; margin: 0 0 2px; }
+  .team-check .why { font-size: 13.5px; color: var(--navy-mute); margin-bottom: 8px; }
+  .team-check ol { margin: 0; padding-left: 20px; }
+  .out .team-check li { margin: 8px 0; font-family: var(--sans); font-size: 14.5px; line-height: 1.5; color: #fff; max-width: none; }
+  .out .team-check li::marker { color: var(--gold); font-weight: 600; }
+  .out .team-check .src { display: block; font-family: var(--sans); font-size: 12.5px; color: var(--navy-mute); margin-top: 2px; }
   .out-actions { margin-top: 14px; display: flex; gap: 8px; flex-wrap: wrap; }
   details.source { margin-top: 7px; }
   details.source summary {
@@ -301,6 +312,7 @@
    ========================================================= */
 
 const STORE_KEY = "execlens.projects.v1";
+const DISMISSED_KEY = "execlens.dismissedDemos.v1";
 const API = "/api/translate";
 
 /* ---------- demo data: built from public knowledge only ---------- */
@@ -461,6 +473,32 @@ const DEMO_PROJECTS = [
 - Partnered with Legal to address questions on eDiscovery of Copilot interactions, enabling alignment with retention obligations.
 - Set up the Copilot Dashboard in Viva for usage reporting.
 - Phase 2 cohort list from Consulting still not received; Ops list is in. Without it we can't provision in time for the planned start.`
+  },
+  {
+    id: "demo-ev-battery",
+    demo: true,
+    name: "EV Battery Quality & Traceability",
+    org: "Automotive manufacturer",
+    industry: "Automotive",
+    cadence: "Weekly",
+    mission: "Improve the quality, safety, and traceability of electric vehicle battery packs by connecting battery manufacturing, testing, supplier, and vehicle data into a single traceability platform.",
+    alignsTo: "EV quality and safety strategy, battery supply-chain resilience, and regulatory traceability requirements.",
+    successCriteria: "Success means 95%+ of production battery packs have complete component-to-vehicle traceability, battery quality issues identified during manufacturing are automatically linked to the affected production lot, defect investigation time is reduced by 50%, and the business can quickly identify potentially affected vehicles when a supplier or component issue is discovered.",
+    objectives: [
+      {
+        id: "o1",
+        title: "Provide evidence of EV quality controls to regulators and customers",
+        description: "A complete digital record of each battery pack and its critical components.",
+        businessValue: "Battery defects can create safety risks, production delays, warranty costs, and expensive recalls. A complete digital record of each battery pack and its critical components allows the manufacturer to identify problems earlier, isolate affected vehicles or production lots, and provide evidence of quality controls to regulators and customers.",
+        targetDate: "2026-12-18"
+      }
+    ],
+    sampleRaw: `- Battery manufacturing integration is on track
+- Supplier data integration is at risk
+- Traceability platform is on track
+- Quality analytics is at risk
+- Regulatory requirements is on track
+- Pilot production is Blocked`
   }
 ];
 
@@ -473,12 +511,25 @@ function loadProjects() {
     const raw = localStorage.getItem(STORE_KEY);
     if (raw) {
       const parsed = JSON.parse(raw);
-      if (Array.isArray(parsed) && parsed.length) return parsed;
+      if (Array.isArray(parsed) && parsed.length) return addMissingDemos(parsed);
     }
   } catch (e) { /* fall through to demo */ }
   const seeded = structuredClone(DEMO_PROJECTS);
   saveProjects(seeded);
   return seeded;
+}
+/* Visitors who opened ExecLens before a demo was added still get it. A demo is
+   skipped if the visitor deleted it, or already has a project with the same name. */
+function addMissingDemos(list) {
+  let dismissed = [];
+  try { dismissed = JSON.parse(localStorage.getItem(DISMISSED_KEY) || "[]"); } catch (e) {}
+  const names = new Set(list.map(p => (p.name || "").trim().toLowerCase()));
+  const ids = new Set(list.map(p => p.id));
+  const missing = DEMO_PROJECTS.filter(d => !ids.has(d.id) && !dismissed.includes(d.id) && !names.has(d.name.toLowerCase()));
+  if (!missing.length) return list;
+  const merged = [...list, ...structuredClone(missing)];
+  try { localStorage.setItem(STORE_KEY, JSON.stringify(merged)); } catch (e) {}
+  return merged;
 }
 function saveProjects(list) {
   projects = list || projects;
@@ -765,6 +816,12 @@ function renderEditor(id) {
   if (del) del.addEventListener("click", () => {
     if (!confirm(`Delete "${p.name}"? This can't be undone.`)) return;
     clearDraft(p.id);
+    if (DEMO_PROJECTS.some(d => d.id === p.id)) {
+      try {
+        const gone = JSON.parse(localStorage.getItem(DISMISSED_KEY) || "[]");
+        localStorage.setItem(DISMISSED_KEY, JSON.stringify([...new Set([...gone, p.id])]));
+      } catch (e) {}
+    }
     saveProjects(projects.filter(x => x.id !== p.id));
     location.hash = "#/projects";
   });
@@ -971,7 +1028,16 @@ function renderOutput(out, p, period, r) {
       <ul>${cut.map(c => `<li>${esc(c.source)} <span class="reason">${esc(c.reason)}</span></li>`).join("")}</ul>
     </div>` : "";
 
-  out.innerHTML = `
+  const qs = (r.teamQuestions || []);
+  const qBlock = qs.length ? `
+    <div class="team-check reveal">
+      <h3>Check with the team before sending</h3>
+      <div class="why">The update left these out, so the report doesn't guess. These questions stay with you and aren't copied into the report.</div>
+      <ol>${qs.map(q => `<li>${esc(q.question)}${q.source ? `<span class="src">They wrote: ${esc(q.source)}</span>` : ""}</li>`).join("")}</ol>
+      <button type="button" class="btn ghost small" id="copy-qs" style="margin-top:10px">Copy questions</button>
+    </div>` : "";
+
+  out.innerHTML = `${qBlock}
     <div class="doc reveal" id="doc">
       <div class="doc-title">${esc(p.name)}</div>
       <div class="period">${esc(p.org || "")}${p.org ? ", " : ""}${esc(period)}</div>
@@ -1066,6 +1132,8 @@ function renderOutput(out, p, period, r) {
   };
   document.getElementById("copy-text").addEventListener("click", (e) => copy(toText(false), e.currentTarget));
   document.getElementById("copy-md").addEventListener("click", (e) => copy(toText(true), e.currentTarget));
+  const qBtn = document.getElementById("copy-qs");
+  if (qBtn) qBtn.addEventListener("click", (e) => copy(qs.map((q, i) => `${i + 1}. ${q.question}`).join("\n"), e.currentTarget));
 }
 
 /* ---------- screen: rules ---------- */
@@ -1117,7 +1185,10 @@ function renderRules() {
       <p>An open risk with no owner and no decision makes leadership wonder why it's in the report at all. Blocked items are pulled into their own section with the specific thing leadership can do. If there's nothing to decide, the report says so plainly instead of inventing an ask.</p>
 
       <h2>Nothing is invented</h2>
-      <p>If a bullet is missing a fact the report needs, like the actual user impact or a number, ExecLens says what's missing rather than filling it in. A confident sentence built on a guess is worse than a gap.</p>
+      <p>The "why it matters" can come from the project setup. The "what happened" comes only from the team. "On track" is never rewritten as "built" or "live," and a blocker with no stated cause never gets a guessed one. A confident sentence built on a guess is worse than a gap.</p>
+
+      <h2>Thin updates get questions, not guesses</h2>
+      <p>Some people write a paragraph per item. Others send "Supplier data is at risk" and nothing else. ExecLens handles both. When a bullet leaves out something leadership will ask, like what's blocking the work or what's driving a risk, the report stays accurate and ExecLens lists the questions to send back to the team before the report goes up. Those questions are for the report owner and aren't copied into the report.</p>
     </div>
   `;
 }
@@ -1166,9 +1237,11 @@ async function pollJob(jobId, onTick) {
 
 /* ---------- misc ---------- */
 document.getElementById("resetDemo").addEventListener("click", () => {
-  if (!confirm("Restore the four demo projects? Your own projects are kept; demo projects are reset.")) return;
+  if (!confirm(`Restore the ${DEMO_PROJECTS.length} demo projects? Your own projects are kept; demo projects are reset.`)) return;
+  try { localStorage.removeItem(DISMISSED_KEY); } catch (e) {}
   const own = projects.filter(p => !p.demo && !DEMO_PROJECTS.some(d => d.id === p.id));
-  saveProjects([...structuredClone(DEMO_PROJECTS), ...own]);
+  const ownNames = new Set(own.map(p => (p.name || "").trim().toLowerCase()));
+  saveProjects([...structuredClone(DEMO_PROJECTS).filter(d => !ownNames.has(d.name.toLowerCase())), ...own]);
   route();
 });
 
