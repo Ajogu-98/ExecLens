@@ -211,12 +211,14 @@
   }
   .out li::marker { color: var(--gold); }
   .out li .status {
-    font-family: var(--sans); font-size: 13px; font-weight: 600;
-    color: var(--info); white-space: nowrap;
+    display: inline-block; vertical-align: 2px; margin-left: 4px;
+    font-family: var(--sans); font-size: 12.5px; font-weight: 600; line-height: 1;
+    padding: 4px 8px; border-radius: 3px; white-space: nowrap;
+    background: #1D4ED8; color: #fff;               /* in progress: strong blue */
   }
-  .out li .status.blocked { color: var(--stop); }
-  .out li .status.risk { color: var(--warn); }
-  .out li .status.ok { color: var(--ok); }
+  .out li .status.blocked { background: #DC2626; color: #fff; }  /* bright red */
+  .out li .status.risk { background: #F59E0B; color: #1F1400; }  /* amber */
+  .out li .status.ok { background: #15803D; color: #fff; }       /* green */
   .out .section-flag { margin: 28px 0 4px; padding: 16px 18px; background: var(--warn-bg); border-radius: var(--radius); }
   .out .section-flag h3 { color: var(--warn); border: none; padding: 0; margin-bottom: 4px; display: block; }
   .out .section-flag .why { color: #7A5316; font-size: 13.5px; margin-bottom: 8px; }
@@ -254,6 +256,7 @@
   .out .team-check li { margin: 8px 0; font-family: var(--sans); font-size: 14.5px; line-height: 1.5; color: #fff; max-width: none; }
   .out .team-check li::marker { color: var(--gold); font-weight: 600; }
   .out .team-check .src { display: block; font-family: var(--sans); font-size: 12.5px; color: var(--navy-mute); margin-top: 2px; }
+  .saved-note { margin-bottom: 12px; padding: 9px 14px; border: 1px dashed var(--navy-line); border-radius: var(--radius); color: var(--navy-text); font-size: 13.5px; }
   .out-actions { margin-top: 14px; display: flex; gap: 8px; flex-wrap: wrap; }
   details.source { margin-top: 7px; }
   details.source summary {
@@ -682,7 +685,7 @@ function renderProjects() {
       <h3>${esc(p.name)}</h3>
       <div class="obj-count">${p.objectives.length} objective${p.objectives.length === 1 ? "" : "s"}, reported ${esc((p.cadence || "Weekly").toLowerCase())}</div>
       <div class="actions">
-        <a class="btn primary small" href="#/translate/${p.id}">Translate an update</a>
+        <a class="btn primary small" href="#/translate/${p.id}">Translate</a>
         <a class="btn ghost small" href="#/project/${p.id}">Edit</a>
       </div>
     </div>`).join("");
@@ -975,7 +978,7 @@ function renderTranslate(id) {
 
   main.innerHTML = `
     <div class="spread" style="margin-bottom:6px">
-      <h1>Translate an update</h1>
+      <h1>Translate</h1>
     </div>
     <p class="lede">Paste the team's bullets exactly as they wrote them. ExecLens maps each one to an objective, rewrites it in what / why / who form, and separates anything that doesn't belong in an executive report.</p>
 
@@ -1060,7 +1063,12 @@ function renderTranslate(id) {
 
   // If this project already has a translated report, bring it back with its edits.
   if (draft.report) {
-    try { renderOutput(document.getElementById("t-out"), p, draft.reportPeriod || startingPeriod, draft.report); }
+    try {
+      const outBox = document.getElementById("t-out");
+      renderOutput(outBox, p, draft.reportPeriod || startingPeriod, draft.report);
+      const when = draft.reportAt ? new Date(draft.reportAt).toLocaleString(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }) : "";
+      outBox.insertAdjacentHTML("afterbegin", `<div class="saved-note">This is your last saved report${when ? `, from ${esc(when)}` : ""}. Click Translate to run it again.</div>`);
+    }
     catch (e) { /* shape changed between versions; the user can translate again */ }
   }
 
@@ -1093,7 +1101,7 @@ function renderTranslate(id) {
         const note = out.querySelector(".elapsed");
         if (note) note.textContent = secs > 25 ? `Still working, ${secs}s. Long updates take longer.` : `${secs}s`;
       });
-      saveDraft(p.id, { report: result, reportPeriod: period });
+      saveDraft(p.id, { report: result, reportPeriod: period, reportAt: Date.now() });
       renderOutput(out, p, period, result);
     } catch (err) {
       out.innerHTML = `<div class="empty">Nothing to show yet.</div>`;
