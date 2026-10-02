@@ -215,6 +215,8 @@
     color: var(--info); white-space: nowrap;
   }
   .out li .status.blocked { color: var(--stop); }
+  .out li .status.risk { color: var(--warn); }
+  .out li .status.ok { color: var(--ok); }
   .out .section-flag { margin: 28px 0 4px; padding: 16px 18px; background: var(--warn-bg); border-radius: var(--radius); }
   .out .section-flag h3 { color: var(--warn); border: none; padding: 0; margin-bottom: 4px; display: block; }
   .out .section-flag .why { color: #7A5316; font-size: 13.5px; margin-bottom: 8px; }
@@ -1104,6 +1106,8 @@ function renderOutput(out, p, period, r) {
   const statusLabel = (s) => {
     if (!s || s === "complete") return "";
     if (s === "blocked") return `<span class="status blocked">Blocked</span>`;
+    if (s === "at-risk") return `<span class="status risk">At risk</span>`;
+    if (s === "on-track") return `<span class="status ok">On track</span>`;
     return `<span class="status">In progress</span>`;
   };
   const ed = (path, text) => `<span class="ed" contenteditable="true" spellcheck="true" data-path="${path}">${esc(text)}</span>`;
@@ -1272,7 +1276,7 @@ function renderOutput(out, p, period, r) {
       const due = obj && obj.targetDate ? ` (target ${obj.targetDate})` : "";
       lines.push((md ? `**${o.title}**` : o.title) + due + tl);
       o.bullets.forEach(b => {
-        const st = b.status === "blocked" ? " (Blocked)" : b.status === "in-progress" ? " (In progress)" : "";
+        const st = { "blocked": " (Blocked)", "at-risk": " (At risk)", "on-track": " (On track)", "in-progress": " (In progress)" }[b.status] || "";
         lines.push(`- ${b.text}${st}`);
       });
     });
