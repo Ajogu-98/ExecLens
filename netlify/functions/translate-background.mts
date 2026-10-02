@@ -26,6 +26,10 @@ export default async (req: Request) => {
 
   const store = getStore({ name: "execlens-jobs", consistency: "strong" });
 
+  // Only run jobs that /api/translate queued (after checking the sandbox limits).
+  const queued: any = await store.get(jobId, { type: "json" }).catch(() => null);
+  if (!queued || queued.state !== "working" || !queued.nonce || queued.nonce !== payload.nonce) return;
+
   try {
     const project: Project = payload.project || {};
     const raw: string = String(payload.raw || "").trim();
@@ -63,6 +67,9 @@ export default async (req: Request) => {
     });
     parsed.blockersAndAsks = parsed.blockersAndAsks || [];
     parsed.offObjective = (parsed.offObjective || []).map((x: any) => ({ text: x.text, reason: x.reason, source: srcText(x.src) }));
+    parsed.teamQuestions = (parsed.teamQuestions || [])
+      .map((x: any) => ({ question: String(x.question || "").trim(), source: srcText(x.src) }))
+      .filter((x: any) => x.question);
     parsed.cut = (parsed.cut || []).map((x: any) => ({ reason: x.reason, source: srcText(x.src) })).filter((x: any) => x.source);
 
     await store.setJSON(jobId, { state: "done", result: parsed, finishedAt: Date.now() });

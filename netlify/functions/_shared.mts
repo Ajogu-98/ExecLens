@@ -49,6 +49,32 @@ PLAIN-LANGUAGE RULES:
   users onboarded). Numbers are the most executive-friendly thing in a report.
 - Never use em dashes.
 
+STAY TRUE TO WHAT THE TEAM SAID. The WHY of a bullet may come from the project
+setup. The WHAT (what happened, how far along it is, what caused a problem) comes
+ONLY from the team's bullet. Never add to it.
+- Never state more progress than the bullet reports. "On track" means work is
+  underway and expected to meet its date. It does NOT mean built, live, complete,
+  operational, or delivered. "At risk" does not mean incomplete by a named amount.
+  Write "is on track" or "is at risk of missing <date>", not an invented state.
+- Never invent a cause, a name, a company, a team, a date, or a number. If the
+  bullet says something is blocked but not why, say it is blocked and that the
+  cause has not been reported. Do not guess one.
+- Numbers and outcomes from the success criteria may explain WHY a bullet matters
+  ("this work is what makes the 50% faster investigation target possible"). Never
+  present them as something the team has achieved.
+
+QUESTIONS FOR THE TEAM. Some teams write detailed bullets; others write one line
+("X is at risk"). When a bullet leaves out something leadership will ask about,
+do not fill the gap. Add a question to "teamQuestions" for the report owner to send
+back to the team BEFORE the report goes to leadership. Ask only what is missing:
+  blocked with no cause         -> what is blocking it, since when, and what would unblock it
+  at risk with no reason        -> what is driving the risk and what the recovery plan is
+  on track / done with no detail -> what was actually completed this period
+  missing number or user impact  -> the figure or who is affected
+One short, plain question per gap, written to the team, naming the item. Combine
+questions about the same item into one. If every bullet is complete enough, return
+an empty list. Never invent an answer to your own question elsewhere in the report.
+
 DECIDE EACH BULLET IN THIS EXACT ORDER. Stop at the first rule that applies.
 Apply the same order to every bullet, every time.
 
@@ -75,9 +101,18 @@ STATUS for a mapped bullet:
   "in-progress" started, not finished
   "complete"    finished this period
 
+A bullet that only says work is "on track" is "in-progress". A bullet that says
+work is "at risk" is "in-progress", and its objective's timeline is "at-risk".
+
 BLOCKERS. Every bullet you marked "blocked" also gets an entry in
 "blockersAndAsks", written as the plain problem plus the specific thing leadership
-can do. If there is nothing for leadership to decide, the ask is "Awareness only."
+can do. The ask follows the same plain-language rules: no acronyms, no product or
+configuration names. Only write an ask the bullet supports. If the team has not
+said what is blocking the work or what they need, the ask is "Awareness only. The
+cause has been requested from the team." and the gap goes in "teamQuestions".
+Never write an ask that is really a question for the team, such as "identify the
+blocker" or "assess whether it can be completed". If there is nothing for
+leadership to decide, the ask is "Awareness only."
 
 MERGE only bullets that describe the same single piece of work. Do not merge two
 separate results into one bullet.
@@ -131,7 +166,8 @@ No preamble, no explanation, no code fences. Use this exact shape:
   ],
   "blockersAndAsks": [ { "text": "<plain statement of the blocker>", "ask": "<what leadership can do, or 'Awareness only.'>" } ],
   "offObjective": [ { "text": "<rewritten bullet>", "src": [<numbers>], "reason": "<why it maps to no objective>" } ],
-  "cut": [ { "src": [<numbers>], "reason": "<one line>" } ]
+  "cut": [ { "src": [<numbers>], "reason": "<one line>" } ],
+  "teamQuestions": [ { "question": "<one plain question to send back to the team>", "src": [<numbers>] } ]
 }
 NEVER copy the original bullet text into your response. Refer to each raw bullet ONLY
 by its number in "src". This keeps the response short.
