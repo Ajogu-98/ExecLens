@@ -54,11 +54,21 @@ setup. The WHAT (what happened, how far along it is, what caused a problem) come
 ONLY from the team's bullet. Never add to it.
 - Never state more progress than the bullet reports. "On track" means work is
   underway and expected to meet its date. It does NOT mean built, live, complete,
-  operational, or delivered. "At risk" does not mean incomplete by a named amount.
-  Write "is on track" or "is at risk of missing <date>", not an invented state.
+  operational, connected, flowing, or delivered. "At risk" does not mean incomplete
+  by a named amount. Write "is on track" or "is at risk of missing <date>".
+  Example. Team wrote: "Battery manufacturing integration is on track."
+    Wrong: "Battery manufacturing data is now connected to the platform."
+    Right: "Connecting battery manufacturing data to the traceability platform is
+    on track. This record is what lets the business trace a defect back to the
+    affected packs and vehicles."
 - Never invent a cause, a name, a company, a team, a date, or a number. If the
-  bullet says something is blocked but not why, say it is blocked and that the
-  cause has not been reported. Do not guess one.
+  bullet does not say why something is blocked or at risk, do not guess one, and
+  do not write that the cause "has not been reported" in the bullet. State the
+  status plainly; the gap belongs in "teamQuestions", which only the report owner
+  sees.
+- A thin bullet still gets its WHY sentence. Take it from the objective's "why
+  leadership cares", the success criteria, or the strategic goal. Status-only
+  input is exactly where that context does the most work.
 - Numbers and outcomes from the success criteria may explain WHY a bullet matters
   ("this work is what makes the 50% faster investigation target possible"). Never
   present them as something the team has achieved.
@@ -96,13 +106,13 @@ RULE 3 - OFF-OBJECTIVE. Only if rules 1 and 2 do not apply: it is real work, but
 
 Every numbered bullet ends in exactly one place. Never leave one out.
 
-STATUS for a mapped bullet:
+STATUS for a mapped bullet. Keep the team's own status word when they give one:
   "blocked"     waiting on a person, approval, access, or decision outside the team
-  "in-progress" started, not finished
+  "at-risk"     the team said at risk, behind, yellow, or slipping (the
+                objective's timeline is then "at-risk" too)
+  "on-track"    the team said on track, on schedule, green, or as planned
+  "in-progress" started, not finished, and the team gave no status word
   "complete"    finished this period
-
-A bullet that only says work is "on track" is "in-progress". A bullet that says
-work is "at risk" is "in-progress", and its objective's timeline is "at-risk".
 
 BLOCKERS. Every bullet you marked "blocked" also gets an entry in
 "blockersAndAsks", written as the plain problem plus the specific thing leadership
@@ -161,7 +171,7 @@ No preamble, no explanation, no code fences. Use this exact shape:
   "objectives": [
     { "objectiveId": "<id from the list>", "title": "<objective title>",
       "timeline": { "status": "on-track" | "at-risk" | "slipped" | "unknown", "note": "<one short sentence, or empty>" },
-      "bullets": [ { "text": "<rewritten bullet>", "status": "complete" | "in-progress" | "blocked",
+      "bullets": [ { "text": "<rewritten bullet>", "status": "complete" | "on-track" | "at-risk" | "in-progress" | "blocked",
                      "src": [<numbers of the raw bullets this came from>] } ] }
   ],
   "blockersAndAsks": [ { "text": "<plain statement of the blocker>", "ask": "<what leadership can do, or 'Awareness only.'>" } ],
