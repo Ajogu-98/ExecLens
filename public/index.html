@@ -61,7 +61,7 @@
   :focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
 
   /* ---------- shell ---------- */
-  .shell { display: grid; grid-template-columns: 232px 1fr; min-height: 100vh; }
+  .shell { display: grid; grid-template-columns: 232px minmax(0, 1fr); min-height: 100vh; }
   .rail {
     background: var(--navy-800);
     border-right: 1px solid var(--navy-line);
@@ -82,7 +82,8 @@
   .main { padding: 40px 44px 90px; max-width: var(--maxw); width: 100%; }
 
   @media (max-width: 860px) {
-    .shell { grid-template-columns: 1fr; }
+    .shell { grid-template-columns: minmax(0, 1fr); }
+    .rail { min-width: 0; }
     .rail { position: static; height: auto; border-right: none; border-bottom: 1px solid var(--navy-line); padding: 14px 16px; }
     .brand { margin-bottom: 12px; }
     .nav { display: flex; gap: 4px; overflow-x: auto; }
@@ -272,6 +273,40 @@
   .working .spin { width: 14px; height: 14px; border: 2px solid var(--line); border-top-color: var(--gold); border-radius: 50%; animation: spin .9s linear infinite; }
   @keyframes spin { to { transform: rotate(360deg); } }
 
+  /* ---------- sandbox notice ---------- */
+  .sandbox {
+    display: flex; gap: 12px; align-items: flex-start;
+    border: 1px solid var(--navy-line); border-left: 3px solid var(--gold); border-radius: var(--radius);
+    background: var(--navy-800); color: var(--navy-text); padding: 12px 16px; font-size: 14px; line-height: 1.55;
+    margin: 0 0 22px; max-width: 80ch;
+  }
+  .sandbox strong { color: #fff; }
+  .sandbox a { color: var(--gold-soft); }
+  .sandbox-inline { color: var(--ink-soft); font-size: 13px; line-height: 1.5; margin-top: 8px; padding: 8px 10px; background: var(--warn-bg); border-radius: var(--radius); color: #6B4710; }
+
+  /* ---------- forms on navy pages ---------- */
+  .page { max-width: 74ch; }
+  .page h2 { margin: 32px 0 10px; color: #fff; }
+  .page p, .page li { color: var(--navy-text); line-height: 1.65; }
+  .page ul, .page ol { padding-left: 21px; }
+  .page li { margin: 8px 0; }
+  .page li::marker { color: var(--gold); }
+  .page strong { color: #fff; }
+  .page a { color: var(--gold-soft); }
+  .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 12px; }
+  @media (max-width: 760px) { .two-col { grid-template-columns: 1fr; } }
+  .two-col .box { border: 1px solid var(--navy-line); border-radius: var(--radius); padding: 16px 18px; background: var(--navy-800); }
+  .two-col .box h3 { color: #fff; font-size: 15px; margin-bottom: 6px; }
+  .two-col .box ul { margin: 0; }
+  .two-col .box li { margin: 5px 0; font-size: 14.5px; }
+  .choice { display: flex; gap: 8px; flex-wrap: wrap; }
+  .choice label { display: inline-flex; align-items: center; gap: 6px; font-weight: 400; border: 1px solid var(--line); border-radius: var(--radius); padding: 7px 12px; cursor: pointer; background: var(--paper-2); margin: 0; }
+  .choice input { accent-color: var(--gold); }
+  .rate { margin-top: 18px; padding: 14px 16px; border: 1px solid var(--navy-line); border-radius: var(--radius); background: var(--navy-800); color: var(--navy-text); font-size: 14px; }
+  .rate .row { gap: 8px; margin-top: 8px; }
+  .rate textarea { width: 100%; min-height: 70px; margin-top: 10px; padding: 9px 11px; border-radius: var(--radius); border: 1px solid var(--navy-line); background: var(--navy-900); color: #fff; font: inherit; }
+  .hidden-forms { display: none; }
+
   /* ---------- rules ---------- */
   .rules { max-width: 74ch; }
   .rules h2 { margin: 32px 0 10px; color: #fff; }
@@ -297,13 +332,30 @@
       <a href="#/projects" data-route="projects">Projects</a>
       <a href="#/translate" data-route="translate">Translate</a>
       <a href="#/rules" data-route="rules">How it decides</a>
+      <a href="#/organizations" data-route="organizations">For organizations</a>
+      <a href="#/feedback" data-route="feedback">Feedback</a>
     </nav>
     <div class="foot">
-      Projects are saved in this browser.<br>
+      Sandbox: demo or made-up data only. Projects are saved in this browser.<br>
       <button id="resetDemo" type="button">Restore demo projects</button>
     </div>
   </aside>
   <main class="main" id="main"></main>
+</div>
+
+<!-- Netlify reads these at deploy time to set up form collection. The visible forms
+     are drawn by the app and post to the same names. -->
+<div class="hidden-forms" aria-hidden="true">
+  <form name="feedback" data-netlify="true" netlify-honeypot="bot-field">
+    <input name="bot-field"><input name="role"><input name="useful"><textarea name="worked"></textarea>
+    <textarea name="missed"></textarea><textarea name="needed"></textarea><input name="email">
+  </form>
+  <form name="report-rating" data-netlify="true" netlify-honeypot="bot-field">
+    <input name="bot-field"><input name="rating"><textarea name="comment"></textarea><input name="project"><input name="bullets">
+  </form>
+  <form name="pilot-inquiry" data-netlify="true" netlify-honeypot="bot-field">
+    <input name="bot-field"><input name="name"><input name="organization"><input name="email"><textarea name="use"></textarea>
+  </form>
 </div>
 
 <script>
@@ -314,6 +366,12 @@
 const STORE_KEY = "execlens.projects.v1";
 const DISMISSED_KEY = "execlens.dismissedDemos.v1";
 const API = "/api/translate";
+
+/* ---------- sandbox notice ---------- */
+const SANDBOX_BANNER = `
+  <div class="sandbox" role="note">
+    <div><strong>This is a public sandbox.</strong> Try it with the demo projects or made-up updates. Please don't paste internal, client, customer, or personal information. Want to use ExecLens on real work? <a href="#/organizations">See how it runs inside an organization</a>.</div>
+  </div>`;
 
 /* ---------- demo data: built from public knowledge only ---------- */
 const DEMO_PROJECTS = [
@@ -572,6 +630,8 @@ function route() {
   if (view === "project") return renderEditor(id);
   if (view === "translate") return renderTranslate(id);
   if (view === "rules") return renderRules();
+  if (view === "organizations") return renderOrgs();
+  if (view === "feedback") return renderFeedback();
   renderProjects();
 }
 window.addEventListener("hashchange", route);
@@ -629,6 +689,7 @@ function renderProjects() {
     <div class="hero">
       <h1>Say what the work means, not what the team did.</h1>
       <p class="lede">Set up a project once with its objectives and why they matter. Then each week, paste the team's raw bullets and get a report leadership can read without a follow-up question. Anything that doesn't tie to an objective gets flagged before it reaches the CIO.</p>
+      ${SANDBOX_BANNER}
       <div class="row">
         <a class="btn primary" href="#/project/new">New project</a>
         <a class="btn ghost" href="#/rules">See how it decides</a>
@@ -636,10 +697,71 @@ function renderProjects() {
     </div>
     <div class="spread" style="margin-bottom:12px">
       <h2>Projects</h2>
-      <span class="muted small">Saved in this browser</span>
+      <span class="row" style="gap:10px">
+        <span class="muted small">Saved in this browser</span>
+        <button type="button" class="btn ghost small" id="import-btn">Import a project</button>
+        <input type="file" id="import-file" accept=".json,application/json" hidden>
+      </span>
     </div>
+    <div id="import-msg" style="margin-bottom:12px"></div>
     ${projects.length ? `<div class="projects">${cards}</div>` : `<div class="empty">No projects yet. Create one to get started.</div>`}
   `;
+  const fileInput = document.getElementById("import-file");
+  document.getElementById("import-btn").addEventListener("click", () => fileInput.click());
+  fileInput.addEventListener("change", async () => {
+    const file = fileInput.files && fileInput.files[0];
+    const msg = document.getElementById("import-msg");
+    if (!file) return;
+    try {
+      if (file.size > 200000) throw new Error("That file is too large to be an ExecLens project.");
+      const imported = importProject(JSON.parse(await file.text()));
+      saveProjects([...projects, imported]);
+      location.hash = "#/project/" + imported.id;
+    } catch (e) {
+      showMsg(msg, e instanceof SyntaxError ? "That file isn't an ExecLens project export." : e.message, "error");
+    }
+    fileInput.value = "";
+  });
+}
+
+/* ---------- export / import ----------
+   A project file holds only the setup (objectives, why they matter, sample update).
+   Reports and drafts stay in the browser. */
+const PROJECT_FIELDS = ["name", "org", "industry", "cadence", "mission", "alignsTo", "successCriteria", "sampleRaw"];
+const OBJECTIVE_FIELDS = ["title", "description", "businessValue", "targetDate"];
+function exportProject(p) {
+  const clean = {};
+  PROJECT_FIELDS.forEach(k => { clean[k] = p[k] || ""; });
+  clean.objectives = (p.objectives || []).map(o => {
+    const x = {};
+    OBJECTIVE_FIELDS.forEach(k => { x[k] = o[k] || ""; });
+    return x;
+  });
+  const blob = new Blob([JSON.stringify({ execlens: "project", version: 1, exportedAt: new Date().toISOString(), project: clean }, null, 2)], { type: "application/json" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = `execlens-${(p.name || "project").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "project"}.json`;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+}
+function importProject(data) {
+  const src = data && data.execlens === "project" ? data.project : null;
+  if (!src || typeof src !== "object") throw new Error("That file isn't an ExecLens project export.");
+  const str = (v, max) => String(v ?? "").slice(0, max);
+  const p = { id: uid("p") };
+  PROJECT_FIELDS.forEach(k => { p[k] = str(src[k], k === "sampleRaw" ? 15000 : 2000); });
+  if (!p.name.trim()) throw new Error("The project in that file has no name.");
+  if (!["Weekly", "Bi-weekly", "Monthly", "Quarterly", "Other"].includes(p.cadence)) p.cadence = "Weekly";
+  const objs = Array.isArray(src.objectives) ? src.objectives.slice(0, 12) : [];
+  p.objectives = objs.map((o, i) => {
+    const x = { id: "o" + (i + 1) };
+    OBJECTIVE_FIELDS.forEach(k => { x[k] = str(o && o[k], 2000); });
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(x.targetDate)) x.targetDate = "";
+    return x;
+  }).filter(o => o.title.trim());
+  if (!p.objectives.length) throw new Error("The project in that file has no objectives.");
+  if (projects.some(x => (x.name || "").trim().toLowerCase() === p.name.trim().toLowerCase())) p.name += " (imported)";
+  return p;
 }
 
 /* ---------- screen: editor ---------- */
@@ -683,7 +805,10 @@ function renderEditor(id) {
   main.innerHTML = `
     <div class="spread" style="margin-bottom:6px">
       <h1>${isNew ? "New project" : "Edit project"}</h1>
-      <a class="btn ghost small" href="#/projects">Back to projects</a>
+      <span class="row" style="gap:8px">
+        ${isNew ? "" : `<button type="button" class="btn ghost small" id="export-btn" title="Save this project's setup as a file you can keep or share">Export project</button>`}
+        <a class="btn ghost small" href="#/projects">Back to projects</a>
+      </span>
     </div>
     <p class="lede">The objectives are the anchor. Every weekly bullet gets mapped to one of them, and the "why leadership cares" line is where the report's impact statements come from.</p>
 
@@ -740,6 +865,9 @@ function renderEditor(id) {
       <div id="editor-msg"></div>
     </div>
   `;
+
+  const exportBtn = document.getElementById("export-btn");
+  if (exportBtn) exportBtn.addEventListener("click", () => exportProject(getProject(p.id) || p));
 
   const objWrap = document.getElementById("objectives");
   const msg = document.getElementById("editor-msg");
@@ -868,6 +996,7 @@ function renderTranslate(id) {
             </span>
           </div>
           <textarea id="t-raw" placeholder="Paste the update as the team wrote it. Jargon, ticket numbers, meeting notes, all of it.">${esc(startingRaw)}</textarea>
+          <div class="sandbox-inline">Sandbox: use demo or made-up updates only. What you paste is sent to an AI service to write the report.</div>
           <div class="hint draft-note" id="t-draftnote"></div>
         </div>
         <div class="row">
@@ -953,8 +1082,11 @@ function renderTranslate(id) {
     out.innerHTML = `<div class="card"><span class="working"><span class="spin"></span>Reading ${count} bullet${count === 1 ? "" : "s"} against ${p.objectives.length} objective${p.objectives.length === 1 ? "" : "s"}. This usually takes 10 to 20 seconds.</span> <span class="elapsed muted small"></span></div>`;
     try {
       const items = splitBullets(raw);
-      const { jobId } = await callApi({ mode: "start", project: p, period, raw, items });
+      const { jobId, remaining } = await callApi({ mode: "start", project: p, period, raw, items });
       if (!jobId) throw new Error("The translation service didn't start the job. Try again.");
+      if (typeof remaining === "number" && remaining <= 5) {
+        msg.innerHTML = `<div class="muted small">${remaining} sandbox run${remaining === 1 ? "" : "s"} left today.</div>`;
+      }
       const result = await pollJob(jobId, (secs) => {
         const note = out.querySelector(".elapsed");
         if (note) note.textContent = secs > 25 ? `Still working, ${secs}s. Long updates take longer.` : `${secs}s`;
@@ -1051,7 +1183,35 @@ function renderOutput(out, p, period, r) {
     <div class="out-actions">
       <button type="button" class="btn small" id="copy-text">Copy as plain text</button>
       <button type="button" class="btn ghost small" id="copy-md">Copy as Markdown</button>
+    </div>
+    <div class="rate" id="rate">
+      <div>Was this report useful?</div>
+      <div class="row">
+        <button type="button" class="btn ghost small" data-rate="useful">Yes</button>
+        <button type="button" class="btn ghost small" data-rate="not-quite">Not quite</button>
+      </div>
     </div>`;
+
+  const rate = document.getElementById("rate");
+  rate.addEventListener("click", (e) => {
+    const b = e.target.closest("[data-rate]");
+    if (!b) return;
+    const rating = b.dataset.rate;
+    rate.innerHTML = `
+      <div>${rating === "useful" ? "Glad it helped. Anything that would make it better?" : "Thanks. What did it get wrong or miss?"}</div>
+      <textarea id="rate-comment" maxlength="1500" placeholder="Optional. Describe the problem, but please don't paste the report or internal content."></textarea>
+      <div class="row"><button type="button" class="btn primary small" id="rate-send">Send</button></div>`;
+    document.getElementById("rate-send").addEventListener("click", async (ev) => {
+      ev.currentTarget.disabled = true;
+      const ok = await sendForm("report-rating", {
+        rating,
+        comment: document.getElementById("rate-comment").value.trim(),
+        project: p.demo || DEMO_PROJECTS.some(d => d.id === p.id) ? `Demo: ${p.name}` : "Own project",
+        bullets: String((r.objectives || []).reduce((n, o) => n + (o.bullets || []).length, 0)),
+      });
+      rate.innerHTML = ok ? `<div>Thank you. Your feedback was sent.</div>` : `<div>That didn't send. You can use the <a href="#/feedback" style="color:var(--gold-soft)">Feedback page</a> instead.</div>`;
+    });
+  });
 
   /* Edits go straight back into the report object, so the copy buttons and the
      saved draft always reflect what is on screen. */
@@ -1134,6 +1294,126 @@ function renderOutput(out, p, period, r) {
   document.getElementById("copy-md").addEventListener("click", (e) => copy(toText(true), e.currentTarget));
   const qBtn = document.getElementById("copy-qs");
   if (qBtn) qBtn.addEventListener("click", (e) => copy(qs.map((q, i) => `${i + 1}. ${q.question}`).join("\n"), e.currentTarget));
+}
+
+/* ---------- forms (collected by Netlify Forms) ---------- */
+async function sendForm(name, fields) {
+  const body = new URLSearchParams({ "form-name": name, "bot-field": "", ...fields });
+  try {
+    const res = await fetch("/", { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" }, body: body.toString() });
+    return res.ok;
+  } catch (e) { return false; }
+}
+
+/* ---------- screen: feedback ---------- */
+function renderFeedback() {
+  main.innerHTML = `
+    <div class="page">
+      <h1>Feedback</h1>
+      <p class="lede">You're one of the first people to use ExecLens. What you tell me here decides what gets built next.</p>
+    </div>
+    <div class="card" style="max-width:74ch;margin-top:18px">
+      <form id="fb">
+        <div class="field"><label for="fb-role">Your role <span class="muted" style="font-weight:400">(optional)</span></label>
+          <input type="text" id="fb-role" maxlength="120" placeholder="e.g. Program manager, CISO office, delivery lead"></div>
+        <div class="field"><label>How useful were the reports?</label>
+          <div class="choice">
+            ${["Very useful", "Somewhat useful", "Not useful yet"].map(v => `<label><input type="radio" name="useful" value="${v}"> ${v}</label>`).join("")}
+          </div></div>
+        <div class="field"><label for="fb-worked">What worked?</label><textarea id="fb-worked" maxlength="2000"></textarea></div>
+        <div class="field"><label for="fb-missed">What did it get wrong, or what was missing?</label><textarea id="fb-missed" maxlength="2000"></textarea></div>
+        <div class="field"><label for="fb-needed">What would you need before using it for real reporting?</label><textarea id="fb-needed" maxlength="2000"></textarea></div>
+        <div class="field"><label for="fb-email">Email, if you'd like a reply <span class="muted" style="font-weight:400">(optional)</span></label>
+          <input type="text" id="fb-email" maxlength="200"></div>
+        <p class="muted small" style="margin-bottom:14px">Please describe problems in your own words rather than pasting reports or internal content.</p>
+        <button type="submit" class="btn primary">Send feedback</button>
+        <div id="fb-msg" style="margin-top:12px"></div>
+      </form>
+    </div>`;
+  document.getElementById("fb").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const msg = document.getElementById("fb-msg");
+    const val = (id) => document.getElementById(id).value.trim();
+    const useful = (document.querySelector('input[name="useful"]:checked') || {}).value || "";
+    if (!useful && !val("fb-worked") && !val("fb-missed") && !val("fb-needed")) { showMsg(msg, "Add at least one answer before sending.", "error"); return; }
+    const btn = e.submitter || e.target.querySelector("button[type=submit]");
+    btn.disabled = true;
+    const ok = await sendForm("feedback", { role: val("fb-role"), useful, worked: val("fb-worked"), missed: val("fb-missed"), needed: val("fb-needed"), email: val("fb-email") });
+    if (ok) { e.target.reset(); showMsg(msg, "Thank you. Your feedback was sent."); }
+    else showMsg(msg, "That didn't send. Check your connection and try again.", "error");
+    btn.disabled = false;
+  });
+}
+
+/* ---------- screen: for organizations ---------- */
+function renderOrgs() {
+  main.innerHTML = `
+    <div class="page">
+      <h1>Bring ExecLens to your organization</h1>
+      <p class="lede">This site is a public sandbox for trying ExecLens with demo or made-up updates. Real reporting belongs inside your organization's own environment, under its security and AI policies. ExecLens is built so it can be set up there.</p>
+
+      <h2>What the sandbox is, and isn't</h2>
+      <ul>
+        <li>It runs on a personal account, not an enterprise platform.</li>
+        <li>There are no accounts and no shared database. Your projects are saved only in your own browser.</li>
+        <li>When you click Translate, the project setup and the update are sent to an AI service (Anthropic's Claude) to write the report. The finished report is held only until your browser picks it up, then deleted.</li>
+        <li>Daily usage limits keep the sandbox running for everyone.</li>
+      </ul>
+      <p>For those reasons, please don't use the sandbox with internal, client, customer, or personal information.</p>
+
+      <h2>What a governed pilot looks like</h2>
+      <ol>
+        <li><strong>Review first.</strong> Your security and AI governance teams review the design before anything is set up.</li>
+        <li><strong>Inside your environment.</strong> ExecLens is deployed in your environment and connected to the AI service your organization already approves.</li>
+        <li><strong>Your controls.</strong> Staff sign in with company credentials. Projects and reports are stored in your systems, under your retention rules.</li>
+        <li><strong>A small group, a set period.</strong> A few report owners use it on real updates, and every report is reviewed by the team before it goes to leadership.</li>
+        <li><strong>Measured before it grows.</strong> Results are checked against criteria you agree up front, such as time spent per report and the number of follow-up questions from leadership.</li>
+      </ol>
+
+      <h2>What carries over</h2>
+      <ul>
+        <li>The editorial rulebook described in <a href="#/rules">How it decides</a>.</li>
+        <li>The project setup: mission, objectives, why leadership cares, success criteria, and target dates.</li>
+        <li>The review step. ExecLens drafts the report and people approve it. It never sends a report on its own.</li>
+      </ul>
+
+      <h2>Who brings what</h2>
+      <div class="two-col">
+        <div class="box"><h3>Your organization</h3><ul>
+          <li>Access to an approved AI service</li><li>A place to host it</li><li>Company sign-in</li><li>Security and governance review</li><li>A pilot group of report owners</li></ul></div>
+        <div class="box"><h3>ExecLens</h3><ul>
+          <li>The rulebook and project setup model</li><li>Setup and configuration support</li><li>Onboarding for the pilot group</li><li>Collecting feedback and refining the rules</li></ul></div>
+      </div>
+
+      <h2>Where it stands</h2>
+      <p>ExecLens is ready for a governed pilot. It has not yet been through an enterprise security assessment. That review is the first step of a pilot.</p>
+
+      <h2>Start a conversation</h2>
+    </div>
+    <div class="card" style="max-width:74ch;margin-top:6px">
+      <form id="pilot">
+        <div class="row" style="align-items:flex-start">
+          <div class="field" style="flex:1;min-width:200px"><label for="pi-name">Name</label><input type="text" id="pi-name" maxlength="120" required></div>
+          <div class="field" style="flex:1;min-width:200px"><label for="pi-org">Organization</label><input type="text" id="pi-org" maxlength="160"></div>
+        </div>
+        <div class="field"><label for="pi-email">Email</label><input type="text" id="pi-email" maxlength="200" required></div>
+        <div class="field"><label for="pi-use">What reporting would you want to use it for?</label><textarea id="pi-use" maxlength="2000" placeholder="For example: weekly CIO status for three infrastructure programs."></textarea></div>
+        <button type="submit" class="btn primary">Send</button>
+        <div id="pi-msg" style="margin-top:12px"></div>
+      </form>
+    </div>`;
+  document.getElementById("pilot").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const msg = document.getElementById("pi-msg");
+    const val = (id) => document.getElementById(id).value.trim();
+    if (!val("pi-name") || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(val("pi-email"))) { showMsg(msg, "Add your name and a valid email so I can reply.", "error"); return; }
+    const btn = e.target.querySelector("button[type=submit]");
+    btn.disabled = true;
+    const ok = await sendForm("pilot-inquiry", { name: val("pi-name"), organization: val("pi-org"), email: val("pi-email"), use: val("pi-use") });
+    if (ok) { e.target.reset(); showMsg(msg, "Thank you. I'll be in touch."); }
+    else showMsg(msg, "That didn't send. Check your connection and try again.", "error");
+    btn.disabled = false;
+  });
 }
 
 /* ---------- screen: rules ---------- */
