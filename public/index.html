@@ -7,7 +7,10 @@
 <meta name="description" content="ExecLens turns technical status updates into executive-ready reporting, anchored to the objectives leadership actually cares about.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600;8..60,700&family=Inter+Tight:wght@400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,600;8..60,700&display=swap" rel="stylesheet">
+<!-- Separate links so one unavailable family can't block the other. -->
+<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible+Next:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&display=swap" rel="stylesheet">
 <style>
   :root {
     /* Boardroom: deep navy chrome, white paper, gold for structure only */
@@ -15,16 +18,16 @@
     --navy-800: #10243C;
     --navy-700: #17314F;
     --navy-line: #24405F;
-    --navy-text: #D7E2EF;
-    --navy-mute: #8EA3BC;
+    --navy-text: #E8EEF5;
+    --navy-mute: #BCCADB;
 
     --gold: #C9A34E;
     --gold-soft: #E8D6A8;
 
     --paper: #FFFFFF;
     --paper-2: #F6F7F9;
-    --ink: #13202E;
-    --ink-soft: #4E5F73;
+    --ink: #0B1622;
+    --ink-soft: #2E3D4F;
     --line: #DDE2E8;
 
     --ok: #15614A;
@@ -36,7 +39,7 @@
     --info: #1B5A86;
 
     --serif: "Source Serif 4", Georgia, "Times New Roman", serif;
-    --sans: "Inter Tight", -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    --sans: "Atkinson Hyperlegible Next", "Atkinson Hyperlegible", -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
     --radius: 3px;
     --maxw: 1200px;
   }
@@ -50,7 +53,7 @@
     background: var(--navy-900);
     -webkit-font-smoothing: antialiased;
   }
-  h1, h2, h3 { font-family: var(--serif); font-weight: 600; margin: 0; line-height: 1.18; }
+  h1, h2, h3 { font-family: var(--serif); font-weight: 700; margin: 0; line-height: 1.18; }
   h1 { font-size: 2.3rem; letter-spacing: -0.012em; }
   h2 { font-size: 1.4rem; }
   h3 { font-size: 1.16rem; }
@@ -77,7 +80,7 @@
   }
   .nav a:hover { background: var(--navy-700); }
   .nav a.active { background: var(--navy-700); color: #fff; border-left-color: var(--gold); font-weight: 500; }
-  .rail .foot { position: absolute; bottom: 22px; left: 20px; right: 20px; font-size: 12.5px; color: var(--navy-mute); line-height: 1.5; }
+  .rail .foot { position: absolute; bottom: 22px; left: 20px; right: 20px; font-size: 13.5px; color: var(--navy-mute); line-height: 1.5; }
   .rail .foot button { background: none; border: none; color: var(--gold); padding: 0; text-decoration: underline; font-size: 12.5px; }
   .main { padding: 40px 44px 90px; max-width: var(--maxw); width: 100%; }
 
@@ -112,7 +115,7 @@
   .row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
   .spread { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; }
   .muted { color: var(--navy-mute); }
-  .small { font-size: 13px; }
+  .small { font-size: 14px; }
 
   /* paper surfaces: anything you read or type into */
   .card, .proj, .objective, .raw, .out .doc {
@@ -126,7 +129,7 @@
 
   .field { margin-bottom: 18px; }
   .field label { display: block; font-weight: 600; margin-bottom: 6px; color: var(--ink); font-size: 14px; }
-  .field .hint { color: var(--ink-soft); font-size: 13px; margin-top: 6px; line-height: 1.5; }
+  .field .hint { color: var(--ink-soft); font-size: 14px; margin-top: 6px; line-height: 1.5; }
   .field input[type=text], .field input[type=date], .field textarea, .field select {
     width: 100%; padding: 10px 12px; border: 1px solid var(--line); border-radius: var(--radius);
     background: var(--paper-2); color: var(--ink);
@@ -143,18 +146,19 @@
     border: 1px dashed var(--navy-line); border-radius: var(--radius);
     padding: 34px; text-align: center; color: var(--navy-mute); background: var(--navy-800);
   }
-  .pill { display: inline-block; font-size: 12.5px; padding: 2px 9px; border-radius: 2px; font-weight: 500; }
-  .pill.ok { color: var(--ok); background: var(--ok-bg); }
-  .pill.warn { color: var(--warn); background: var(--warn-bg); }
+  .pill { display: inline-block; font-size: 13px; line-height: 1; padding: 5px 9px; border-radius: 3px; font-weight: 700; }
+  .pill.ok { color: #fff; background: #15803D; }
+  .pill.warn { color: #1F1400; background: #F59E0B; }
+  .pill.stop { color: #fff; background: #DC2626; }
 
   /* ---------- projects ---------- */
   .hero { margin-bottom: 38px; padding-bottom: 30px; border-bottom: 1px solid var(--navy-line); }
   .hero h1 { max-width: 30ch; text-wrap: balance; margin-bottom: 14px; color: #fff; }
   .projects { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 16px; }
   .proj { padding: 20px 22px; display: flex; flex-direction: column; gap: 7px; }
-  .proj .org { color: var(--ink-soft); font-size: 13px; }
+  .proj .org { color: var(--ink-soft); font-size: 14px; }
   .proj h3 { margin-bottom: 1px; }
-  .proj .obj-count { color: var(--ink-soft); font-size: 13px; }
+  .proj .obj-count { color: var(--ink-soft); font-size: 14px; }
   .proj .actions { margin-top: auto; padding-top: 14px; display: flex; gap: 8px; }
   .proj .btn { border-color: var(--line); color: var(--ink); }
   .proj .btn:hover { background: var(--paper-2); color: var(--ink); }
@@ -194,25 +198,26 @@
   /* the report: the one place that should feel printed */
   .out .doc { padding: 34px 38px 32px; border-top: 3px solid var(--gold); }
   .out .doc .doc-title { font-family: var(--serif); font-size: 1.72rem; font-weight: 700; color: var(--ink); letter-spacing: -0.01em; }
-  .out .doc .period { color: var(--ink-soft); font-size: 13.5px; margin-top: 3px; }
-  .out .doc .aligns { color: var(--ink-soft); font-size: 13.5px; margin-top: 6px; padding-top: 10px; border-top: 1px solid var(--line); }
+  .out .doc .period { color: var(--ink-soft); font-size: 15px; font-weight: 500; margin-top: 4px; }
+  .out .doc .aligns { color: var(--ink-soft); font-size: 15px; margin-top: 6px; padding-top: 10px; border-top: 1px solid var(--line); }
   .out .objective-block { margin: 26px 0 4px; }
   .out .objective-block h3 {
     color: var(--ink); padding-bottom: 7px; margin-bottom: 10px;
     border-bottom: 1px solid var(--line);
     display: flex; justify-content: space-between; align-items: baseline; gap: 14px; flex-wrap: wrap;
   }
-  .out .objective-meta { font-family: var(--sans); font-size: 13px; display: inline-flex; gap: 9px; align-items: center; color: var(--ink-soft); }
-  .out .timeline-note { color: var(--warn); font-size: 14px; margin: -2px 0 10px; }
+  .out .objective-meta { font-family: var(--sans); font-size: 14px; display: inline-flex; gap: 10px; align-items: center; color: var(--ink); }
+  .out .objective-meta .due { font-weight: 700; color: var(--ink); }
+  .out .timeline-note { color: #7A4A00; font-weight: 600; font-size: 15px; margin: -2px 0 10px; }
   .out ul { margin: 0; padding-left: 21px; }
   .out li {
-    margin: 11px 0; font-family: var(--serif); font-size: 16.5px; line-height: 1.62; color: var(--ink);
+    margin: 12px 0; font-family: var(--sans); font-size: 17px; line-height: 1.6; color: var(--ink);
     max-width: 68ch;
   }
   .out li::marker { color: var(--gold); }
   .out li .status {
     display: inline-block; vertical-align: 2px; margin-left: 4px;
-    font-family: var(--sans); font-size: 12.5px; font-weight: 600; line-height: 1;
+    font-family: var(--sans); font-size: 13.5px; font-weight: 700; line-height: 1;
     padding: 4px 8px; border-radius: 3px; white-space: nowrap;
     background: #1D4ED8; color: #fff;               /* in progress: strong blue */
   }
@@ -221,16 +226,16 @@
   .out li .status.ok { background: #15803D; color: #fff; }       /* green */
   .out .section-flag { margin: 28px 0 4px; padding: 16px 18px; background: var(--warn-bg); border-radius: var(--radius); }
   .out .section-flag h3 { color: var(--warn); border: none; padding: 0; margin-bottom: 4px; display: block; }
-  .out .section-flag .why { color: #7A5316; font-size: 13.5px; margin-bottom: 8px; }
+  .out .section-flag .why { color: #5C3A00; font-size: 14.5px; margin-bottom: 8px; }
   .out .section-flag li::marker { color: var(--warn); }
-  .out .section-flag .reason { font-family: var(--sans); font-size: 13px; color: #7A5316; display: block; margin-top: 3px; }
-  .out .ask { font-family: var(--sans); font-size: 14.5px; font-weight: 600; }
-  .out .cut { margin-top: 30px; padding-top: 16px; border-top: 1px solid var(--line); color: #4A5B6E; font-size: 14.5px; }
+  .out .section-flag .reason { font-family: var(--sans); font-size: 14px; color: #5C3A00; display: block; margin-top: 3px; }
+  .out .ask { font-family: var(--sans); font-size: 15.5px; font-weight: 700; }
+  .out .cut { margin-top: 30px; padding-top: 16px; border-top: 1px solid var(--line); color: var(--ink-soft); font-size: 15px; }
   .out .cut strong { font-family: var(--sans); font-size: 13.5px; }
   .out .cut strong { color: var(--ink); }
-  .out .cut li { font-family: var(--serif); font-size: 14.5px; line-height: 1.55; margin: 7px 0; color: #4A5B6E; }
+  .out .cut li { font-family: var(--sans); font-size: 15px; line-height: 1.55; margin: 7px 0; color: var(--ink-soft); }
   .out .cut li::marker { color: #B9C2CC; }
-  .out .cut .reason { font-family: var(--sans); font-size: 13px; color: #64748B; display: block; margin-top: 2px; }
+  .out .cut .reason { font-family: var(--sans); font-size: 14px; color: var(--ink-soft); display: block; margin-top: 2px; }
   .out .ed { outline: none; border-radius: 2px; padding: 0 2px; margin: 0 -2px; }
   .out .ed:hover { background: #FBF6EA; }
   .out .ed:focus { background: #FDFAF2; box-shadow: 0 0 0 2px rgba(201, 163, 78, .5); }
@@ -242,7 +247,7 @@
   .out li:hover .drop, .out .drop:focus { opacity: 1; }
   .out .drop:hover { color: var(--stop); }
   .out .edit-hint {
-    font-family: var(--sans); font-size: 13px; color: var(--ink-soft);
+    font-family: var(--sans); font-size: 14.5px; font-weight: 500; color: var(--ink-soft);
     margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--line);
   }
   .team-check {
@@ -250,24 +255,24 @@
     border: 1px solid var(--navy-line); border-left: 3px solid var(--gold); border-radius: var(--radius);
     color: var(--navy-text);
   }
-  .team-check h3 { font-family: var(--sans); font-size: 14.5px; font-weight: 600; color: #fff; margin: 0 0 2px; }
-  .team-check .why { font-size: 13.5px; color: var(--navy-mute); margin-bottom: 8px; }
+  .team-check h3 { font-family: var(--sans); font-size: 16px; font-weight: 700; color: #fff; margin: 0 0 2px; }
+  .team-check .why { font-size: 14.5px; color: var(--navy-mute); margin-bottom: 8px; }
   .team-check ol { margin: 0; padding-left: 20px; }
-  .out .team-check li { margin: 8px 0; font-family: var(--sans); font-size: 14.5px; line-height: 1.5; color: #fff; max-width: none; }
+  .out .team-check li { margin: 9px 0; font-family: var(--sans); font-size: 15.5px; font-weight: 500; line-height: 1.5; color: #fff; max-width: none; }
   .out .team-check li::marker { color: var(--gold); font-weight: 600; }
-  .out .team-check .src { display: block; font-family: var(--sans); font-size: 12.5px; color: var(--navy-mute); margin-top: 2px; }
-  .saved-note { margin-bottom: 12px; padding: 9px 14px; border: 1px dashed var(--navy-line); border-radius: var(--radius); color: var(--navy-text); font-size: 13.5px; }
+  .out .team-check .src { display: block; font-family: var(--sans); font-size: 14px; font-weight: 400; color: var(--navy-mute); margin-top: 2px; }
+  .saved-note { margin-bottom: 12px; padding: 10px 14px; border: 1px dashed var(--navy-mute); border-radius: var(--radius); color: #fff; font-size: 14.5px; }
   .out-actions { margin-top: 14px; display: flex; gap: 8px; flex-wrap: wrap; }
   details.source { margin-top: 7px; }
   details.source summary {
-    color: #3C5061; font-family: var(--sans); font-size: 13.5px; cursor: pointer;
+    color: var(--ink-soft); font-family: var(--sans); font-size: 14px; font-weight: 500; cursor: pointer;
     display: inline-block; padding: 2px 9px 2px 8px;
     background: var(--paper-2); border: 1px solid var(--line); border-radius: 2px;
   }
   details.source summary:hover { color: var(--ink); border-color: #C3CBD4; }
   details.source[open] summary { color: var(--ink); font-weight: 500; }
   details.source .src {
-    color: #3C5061; font-family: var(--sans); font-size: 14px; font-style: italic;
+    color: var(--ink-soft); font-family: var(--sans); font-size: 15px; font-style: italic;
     margin-top: 6px; line-height: 1.55; padding-left: 12px; border-left: 2px solid var(--line);
   }
 
@@ -287,7 +292,7 @@
   }
   .sandbox strong { color: #fff; }
   .sandbox a { color: var(--gold-soft); }
-  .sandbox-inline { color: var(--ink-soft); font-size: 13px; line-height: 1.5; margin-top: 8px; padding: 8px 10px; background: var(--warn-bg); border-radius: var(--radius); color: #6B4710; }
+  .sandbox-inline { color: var(--ink-soft); font-size: 14px; line-height: 1.5; margin-top: 8px; padding: 8px 10px; background: var(--warn-bg); border-radius: var(--radius); color: #6B4710; }
 
   /* ---------- forms on navy pages ---------- */
   .page { max-width: 74ch; }
@@ -1134,10 +1139,10 @@ function renderOutput(out, p, period, r) {
     const obj = (p.objectives || []).find(x => x.id === o.objectiveId);
     const date = obj && obj.targetDate ? fmtDate(obj.targetDate) : "";
     const t = o.timeline || {};
-    const map = { "on-track": ["ok", "On track"], "at-risk": ["warn", "At risk"], "slipped": ["warn", "Slipped"] };
+    const map = { "on-track": ["ok", "On track"], "at-risk": ["warn", "At risk"], "slipped": ["stop", "Slipped"] };
     const hit = map[t.status];
     const pill = hit ? `<span class="pill ${hit[0]}" title="${esc(t.note || "")}">${hit[1]}</span>` : "";
-    const due = date ? `<span class="muted small">Target ${esc(date)}</span>` : "";
+    const due = date ? `<span class="due">Target ${esc(date)}</span>` : "";
     return (pill || due) ? `<span class="objective-meta">${due} ${pill}</span>` : "";
   };
   const objectiveBlocks = (r.objectives || []).map((o, oi) => ({ o, oi })).filter(x => (x.o.bullets || []).length).map(({ o, oi }) => `
