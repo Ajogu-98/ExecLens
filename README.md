@@ -49,7 +49,7 @@ roughly halves what it has to generate.
 
 - **Front end:** vanilla HTML, CSS, and JavaScript. No framework, no build step. Projects are saved in the browser (localStorage) for v1.
 - **Back end:** two Netlify Functions sharing one editorial engine. `/api/translate` queues jobs and answers polls; the background function does the translation and stores the result in Netlify Blobs. The API key lives only in the functions and never reaches the browser.
-- **Model:** Anthropic Claude (`claude-sonnet-5` by default, configurable with `EXECLENS_MODEL`).
+- **Model:** Anthropic Claude (`claude-haiku-4-5-20251001` by default, set in `netlify/functions/_shared.mts`; override it with the `EXECLENS_MODEL` environment variable).
 
 ## Running it
 
